@@ -1,0 +1,9 @@
+## Interface: 110000
+## Title: TradeWhisper
+## Version: @project-version@
+## Author: Xodiv-Nagrand
+## Email: mib@post.com
+## OptionalDeps: _LiteLite
+## SavedVariables: TradeWhisperDB
+
+TradeWhisper.xml
