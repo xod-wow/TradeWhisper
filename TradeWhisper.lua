@@ -87,6 +87,12 @@ local function FindMatchingLink(chatMsgText, text)
         if link:lower():find(text) then
             return link
         end
+        local item = Item:CreateFromItemLink(link)
+        if item and not Item:IsItemEmpty() and Item:IsItemDataCached() then
+            if item:GetItemName():lower():find(text) then
+                return link
+            end
+        end
     end
 end
 
@@ -150,7 +156,7 @@ function TradeWhisperMixin:GetWhisperMessage(link, crafter)
     if self:IsMe(crafter) then
         return msg .. " Send to this toon if interested."
     else
-        return msg .. " Send to my alt " .. crafter .. "if interested."
+        return msg .. " Send to my alt " .. crafter .. " if interested."
     end
 end
 
