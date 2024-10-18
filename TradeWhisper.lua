@@ -120,7 +120,7 @@ end
 
 function TradeWhisperMixin:IsIgnoredSender(playerName)
     playerName = GetNameAndRealm(playerName)
-    return self:IsMe(playerName) or self.db.global.tradeIgnore[playername] ~= nil
+    return self:IsMe(playerName) or self.db.global.tradeIgnore[playerName] ~= nil
 end
 
 function TradeWhisperMixin:IgnoreAdd(playerName)
