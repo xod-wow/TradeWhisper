@@ -162,11 +162,7 @@ function TradeWhisperMixin:GetWhisperMessage(item, crafter)
     return self.db.global.message:gsub('{(.-)}', repl)
 end
 
-function TradeWhisperMixin:CHAT_MSG_CHANNEL(...)
-    local zoneChannelID = select(7, ...)
-    if zoneChannelID ~= 2 then return end
-
-    local chatMsgText, chatMsgSender = ...
+function TradeWhisperMixin:ProcessChatMessage(chatMsgText, chagMsgSender)
     if not self:PlayerOnConnectedRealm(chatMsgSender) then return end
     if self:IsIgnoredSender(chatMsgSender) then return end
 
@@ -179,6 +175,18 @@ function TradeWhisperMixin:CHAT_MSG_CHANNEL(...)
             PlaySound(11466)
         end
     end
+end
+
+function TradeWhisperMixin:CHAT_MSG_WHISPER(...)
+    local chatMsgText, chatMsgSender = ...
+    self:ProcessChatMessage(chatMsgText, chatMsgSender)
+end
+
+function TradeWhisperMixin:CHAT_MSG_CHANNEL(...)
+    local zoneChannelID = select(7, ...)
+    if zoneChannelID ~= 2 then return end
+    local chatMsgText, chatMsgSender = ...
+    self:ProcessChatMessage(chatMsgText, chatMsgSender)
 end
 
 function TradeWhisperMixin:ScanList()
@@ -243,8 +251,10 @@ end
 function TradeWhisperMixin:UpdateScanning()
     if next(self.db.global.tradeScan) then
         self:RegisterEvent("CHAT_MSG_CHANNEL")
+        self:RegisterEvent("CHAT_MSG_WHISPER")
     else
         self:UnregisterEvent("CHAT_MSG_CHANNEL")
+        self:UnregisterEvent("CHAT_MSG_WHISPER")
     end
 end
 
