@@ -6,4 +6,8 @@
 ## OptionalDeps: _LiteLite
 ## SavedVariables: TradeWhisperDB
 
+embeds.xml
+
 TradeWhisper.xml
+
+UI/Options.lua

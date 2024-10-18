@@ -3,27 +3,33 @@
   <Script file="TradeWhisper.lua"/>
 
   <Frame name="TradeWhisper" inherits="DefaultPanelFlatTemplate" mixin="TradeWhisperMixin" parent="UIParent" topLevel="true" movable="true" dontSavePosition="true" registerForDrag="LeftButton" frameStrata="FULLSCREEN_DIALOG" hidden="true">
-    <Size x="600" y="96" />
+    <Size x="600" y="112" />
     <Anchors>
       <Anchor point="CENTER" />
     </Anchors>
     <Frames>
-      <EditBox parentKey="Message" letters="255" inherits="InputBoxTemplate" autoFocus="false">
-        <Size x="512" y="22" />
+      <ScrollFrame parentKey="Message" inherits="InputScrollFrameTemplate">
+        <KeyValues>
+          <KeyValue key="maxLetters" value="9999" type="number"/>
+          <KeyValue key="hideCharCount" value="true" type="boolean"/>
+          <KeyValue key="cursorOffset" value="0" type="number"/>
+        </KeyValues>
+        <Size y="44" />
         <Anchors>
-          <Anchor point="CENTER" />
+          <Anchor point="TOPLEFT" relativeKey="$parent.TitleContainer" relativePoint="BOTTOMLEFT" y="-12" />
+          <Anchor point="TOPRIGHT" relativeKey="$parent.TitleContainer" relativePoint="BOTTOMRIGHT" y="-12" />
         </Anchors>
-      </EditBox>
+      </ScrollFrame>
       <EditBox parentKey="Recipient" letters="48" inherits="InputBoxTemplate" autoFocus="false">
         <Size x="256" y="22" />
         <Anchors>
-          <Anchor point="TOP" relativeKey="$parent.Message" relativePoint="BOTTOM" />
+          <Anchor point="TOP" relativeKey="$parent.Message" relativePoint="BOTTOM" y="-8" />
         </Anchors>
       </EditBox>
       <Button parentKey="Send" inherits="UIPanelButtonTemplate" text="SEND_MESSAGE">
-        <Size x="96" y="22" />
+        <Size x="128" y="22" />
         <Anchors>
-          <Anchor point="TOPRIGHT" relativeKey="$parent.Message" relativePoint="BOTTOMRIGHT" />
+          <Anchor point="TOPRIGHT" relativeKey="$parent.Message" relativePoint="BOTTOMRIGHT" y="-8" />
         </Anchors>
         <Scripts>
           <OnClick>
@@ -32,9 +38,9 @@
         </Scripts>
       </Button>
       <Button parentKey="Ignore" inherits="UIPanelButtonTemplate" text="IGNORE">
-        <Size x="64" y="22" />
+        <Size x="72" y="22" />
         <Anchors>
-          <Anchor point="TOPLEFT" relativeKey="$parent.Message" relativePoint="BOTTOMLEFT" />
+          <Anchor point="TOPLEFT" relativeKey="$parent.Message" relativePoint="BOTTOMLEFT" y="-8" />
         </Anchors>
         <Scripts>
           <OnClick>

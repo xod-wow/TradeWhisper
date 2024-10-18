@@ -19,7 +19,7 @@ TradeWhisperMixin = {}
 
 function TradeWhisperMixin:PrintHelp()
     printf("Usage:")
-    printf("  /tw add text | itemlinks")
+    printf("  /tw add playerName text | itemlinks")
     printf("  /tw del text | index")
     printf("  /tw clear")
     printf("  /tw list")
@@ -39,6 +39,9 @@ function TradeWhisperMixin:SlashCommand(arg)
         return true
     elseif arg == 'list' then
         self:ScanList()
+        return true
+    elseif arg == 'opt' then
+        LibStub("AceConfigDialog-3.0"):Open(addOnName)
         return true
     end
 
@@ -88,7 +91,7 @@ local function FindMatchingLink(chatMsgText, text)
             return link
         end
         local item = Item:CreateFromItemLink(link)
-        if item and not Item:IsItemEmpty() and Item:IsItemDataCached() then
+        if item and not item:IsItemEmpty() and item:IsItemDataCached() then
             if item:GetItemName():lower():find(text) then
                 return link
             end
@@ -117,27 +120,27 @@ end
 
 function TradeWhisperMixin:IsIgnoredSender(playerName)
     playerName = GetNameAndRealm(playerName)
-    return self:IsMe(playerName) or self.db.tradeIgnore[playername] ~= nil
+    return self:IsMe(playerName) or self.db.global.tradeIgnore[playername] ~= nil
 end
 
 function TradeWhisperMixin:IgnoreAdd(playerName)
     playerName = GetNameAndRealm(playerName)
-    self.db.tradeIgnore[playerName] = true
+    self.db.global.tradeIgnore[playerName] = true
 end
 
 function TradeWhisperMixin:IgnoreDel(playerName)
     playerName = GetNameAndRealm(playerName)
-    self.db.tradeIgnore[playerName] = nil
+    self.db.global.tradeIgnore[playerName] = nil
 end
 
 function TradeWhisperMixin:IgnoreClear()
-    table.wipe(self.db.tradeIgnore)
+    table.wipe(self.db.global.tradeIgnore)
 end
 
 function TradeWhisperMixin:IgnoreList()
     printf("Ignore list:")
-    if next(self.db.tradeIgnore) then
-        local names = GetKeysArray(self.db.tradeIgnore)
+    if next(self.db.global.tradeIgnore) then
+        local names = GetKeysArray(self.db.global.tradeIgnore)
         table.sort(names)
         for i, name in ipairs(names) do
             printf("%d. %s", i, name)
@@ -151,13 +154,12 @@ function TradeWhisperMixin:IsMe(name)
     return name == self.playerName
 end
 
-function TradeWhisperMixin:GetWhisperMessage(link, crafter)
-    local msg = 'I can craft ' .. link .. ', guaranteed 5* with 3* mats.'
-    if self:IsMe(crafter) then
-        return msg .. " Send to this toon if interested."
-    else
-        return msg .. " Send to my alt " .. crafter .. " if interested."
-    end
+function TradeWhisperMixin:GetWhisperMessage(item, crafter)
+    local repl = {
+        item = item,
+        crafter = self:IsMe(crafter) and "this character" or crafter,
+    }
+    return self.db.global.message:gsub('{(.-)}', repl)
 end
 
 function TradeWhisperMixin:CHAT_MSG_CHANNEL(...)
@@ -168,7 +170,7 @@ function TradeWhisperMixin:CHAT_MSG_CHANNEL(...)
     if not self:PlayerOnConnectedRealm(chatMsgSender) then return end
     if self:IsIgnoredSender(chatMsgSender) then return end
 
-    for text, crafter in pairs(self.db.tradeScan) do
+    for text, crafter in pairs(self.db.global.tradeScan) do
         if chatMsgText:lower():find(text) then
             local link = FindMatchingLink(chatMsgText, text) or text
             local msg = self:GetWhisperMessage(link, crafter)
@@ -181,11 +183,11 @@ end
 
 function TradeWhisperMixin:ScanList()
     printf("Scan for trade:")
-    if next(self.db.tradeScan) then
-        local texts = GetKeysArray(self.db.tradeScan)
+    if next(self.db.global.tradeScan) then
+        local texts = GetKeysArray(self.db.global.tradeScan)
         table.sort(texts)
         for i, text in ipairs(texts) do
-            printf("%d. %s : %s", i, self.db.tradeScan[text], text)
+            printf("%d. %s : %s", i, self.db.global.tradeScan[text], text)
         end
     else
         printf("   None.")
@@ -193,12 +195,20 @@ function TradeWhisperMixin:ScanList()
 end
 
 function TradeWhisperMixin:ScanClear()
-    self.db.tradeScan = table.wipe(self.db.tradeScan)
+    self.db.global.tradeScan = table.wipe(self.db.global.tradeScan)
     self:UpdateScanning()
 end
 
 function TradeWhisperMixin:ScanAdd(playerName, text)
     if not text or text == '' then
+        return
+    end
+
+    if not playerName:sub(1,1):match('[A-Z]') then
+        printf("Error: %s : player name must start with a capital letter.", playerName)
+        return
+    elseif playerName:find("[^-'A-Za-z]") then
+        printf("Error: %s : player name contains invalid letters.", playerName)
         return
     end
 
@@ -209,11 +219,11 @@ function TradeWhisperMixin:ScanAdd(playerName, text)
         text = text:gsub(' ?|A.-|a', '')
         for itemText in text:gmatch('|H.-|h%[(.-)%]') do
             itemText = itemText:lower()
-            self.db.tradeScan[itemText] = playerName
+            self.db.global.tradeScan[itemText] = playerName
         end
     else
         text = text:lower()
-        self.db.tradeScan[text] = playerName
+        self.db.global.tradeScan[text] = playerName
     end
     self:UpdateScanning()
 end
@@ -221,17 +231,17 @@ end
 function TradeWhisperMixin:ScanDel(text)
     local n = tonumber(text)
     if n then
-        local keys = GetKeysArray(self.db.tradeScan)
+        local keys = GetKeysArray(self.db.global.tradeScan)
         table.sort(keys)
-        self.db.tradeScan[keys[n]] = nil
+        self.db.global.tradeScan[keys[n]] = nil
     else
-        self.db.tradeScan[text:lower()] = nil
+        self.db.global.tradeScan[text:lower()] = nil
     end
     self:UpdateScanning()
 end
 
 function TradeWhisperMixin:UpdateScanning()
-    if next(self.db.tradeScan) then
+    if next(self.db.global.tradeScan) then
         self:RegisterEvent("CHAT_MSG_CHANNEL")
     else
         self:UnregisterEvent("CHAT_MSG_CHANNEL")
@@ -243,37 +253,49 @@ function TradeWhisperMixin:OnEvent(e, ...)
 end
 
 function TradeWhisperMixin:OnLoad()
+    self.Message.EditBox:SetFontObject(ChatFontNormal)
     self:RegisterEvent('PLAYER_LOGIN')
     self:SetTitle(addOnName)
 end
 
 function TradeWhisperMixin:OnHide()
-    self.Message:SetText('')
+    self.Message.EditBox:SetText('')
     self.Recipient:SetText('')
 end
 
 function TradeWhisperMixin:SendWhisper()
-    SendChatMessage(self.Message:GetText(), "WHISPER", nil, self.Recipient:GetText())
+    SendChatMessage(self.Message.EditBox:GetText(), "WHISPER", nil, self.Recipient:GetText())
     self:Hide()
 end
 
 function TradeWhisperMixin:Open(message, recipient)
-    self.Message:SetText(message or "")
+    self.Message.EditBox:SetText(message or "")
     self.Recipient:SetText(recipient or "")
     self:Show()
 end
 
+local defaults = {
+    global = {
+        message = "I can craft {item}, guaranteed 5* with 3* mats. Send to {crafter} if interested. Let me know and I can do it now.",
+        tradeScan = {},
+        tradeIgnore = {},
+    }
+}
+
 function TradeWhisperMixin:PLAYER_LOGIN()
     printf('Initialized.')
 
+    if TradeWhisperDB and TradeWhisperDB.tradeScan then
+        TradeWhisperDB.global = TradeWhisperDB.global or {}
+        TradeWhisperDB.global.tradeScan = TradeWhisperDB.tradeScan
+        TradeWhisperDB.tradeScan = nil
+        TradeWhisperDB.tradeIgnore = nil
+    end
+
+    self.db = LibStub("AceDB-3.0"):New("TradeWhisperDB", defaults, true)
+
     self.playerName = string.format('%s-%s', UnitFullName('player'))
     self.validRealms = GetAutoCompleteRealms()
-
-    TradeWhisperDB = TradeWhisperDB or {}
-    self.db = TradeWhisperDB
-
-    self.db.tradeScan = self.db.tradeScan or {}
-    self.db.tradeIgnore = self.db.tradeIgnore or {}
 
     self:SetupSlashCommand()
     self:UpdateScanning()
