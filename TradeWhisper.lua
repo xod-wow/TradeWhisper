@@ -99,23 +99,24 @@ local function FindMatchingLink(chatMsgText, text)
     end
 end
 
-function TradeWhisperMixin:PlayerOnConnectedRealm(playerName)
-    local _, playerRealm = string.split('-', playerName)
-    if not playerRealm then
-        return true
-    elseif tContains(self.validRealms, playerRealm) then
-        return true
-    else
-        return false
-    end
-end
-
 local function GetNameAndRealm(playerName)
     if playerName:find('-') then
         return playerName
     else
         return playerName .. '-' .. GetRealmName()
     end
+end
+
+local function GetRealm(playerName)
+    local _, realm = string.split('-', playerName)
+    return realm or GetRealmName()
+end
+
+
+function TradeWhisperMixin:ValidCustomer(customerName, crafterName)
+    local customerRealm = GetRealm(customerName)
+    local crafterRealm = GetRealm(crafterName)
+    return tContains(self.db.global.connectedRealms[crafterRealm] or {}, customerRealm)
 end
 
 function TradeWhisperMixin:IsIgnoredSender(playerName)
@@ -167,16 +168,16 @@ function TradeWhisperMixin:CHAT_MSG_CHANNEL(...)
     if zoneChannelID ~= 2 then return end
 
     local chatMsgText, chatMsgSender = ...
-    if not self:PlayerOnConnectedRealm(chatMsgSender) then return end
     if self:IsIgnoredSender(chatMsgSender) then return end
 
     for text, crafter in pairs(self.db.global.tradeScan) do
-        if chatMsgText:lower():find(text) then
+        if chatMsgText:lower():find(text) and self:ValidCustomer(chatMsgSender, crafter) then
             local link = FindMatchingLink(chatMsgText, text) or text
             local msg = self:GetWhisperMessage(link, crafter)
             self:Open(msg, chatMsgSender)
             printf("%s : %s", chatMsgSender, chatMsgText)
             PlaySound(11466)
+            return
         end
     end
 end
@@ -274,11 +275,18 @@ function TradeWhisperMixin:Open(message, recipient)
     self:Show()
 end
 
+function TradeWhisperMixin:UpdateConnectedRealms()
+    for _, r in ipairs(GetAutoCompleteRealms()) do
+        self.db.global.connectedRealms[r] = GetAutoCompleteRealms()
+    end
+end
+
 local defaults = {
     global = {
         message = "I can craft {item}, guaranteed 5* with 3* mats. Send to {crafter} if interested. Let me know and I can do it now.",
         tradeScan = {},
         tradeIgnore = {},
+        connectedRealms = {},
     }
 }
 
@@ -297,6 +305,7 @@ function TradeWhisperMixin:PLAYER_LOGIN()
     self.playerName = string.format('%s-%s', UnitFullName('player'))
     self.validRealms = GetAutoCompleteRealms()
 
+    self:UpdateConnectedRealms()
     self:SetupSlashCommand()
     self:UpdateScanning()
 end
