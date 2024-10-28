@@ -3,10 +3,22 @@
   <Script file="TradeWhisper.lua"/>
 
   <Frame name="TradeWhisper" inherits="DefaultPanelFlatTemplate" mixin="TradeWhisperMixin" parent="UIParent" topLevel="true" movable="true" dontSavePosition="true" registerForDrag="LeftButton" frameStrata="FULLSCREEN_DIALOG" hidden="true">
-    <Size x="600" y="112" />
+    <Size x="600" y="164" />
     <Anchors>
       <Anchor point="CENTER" />
     </Anchors>
+    <Layers>
+      <Layer level="OVERLAY">
+        <FontString parentKey="Text" text="TheText" inherits="ChatFontNormal" wordwrap="true" justifyH="LEFT" justifyV="TOP">
+          <Size y="48" />
+          <Color r="1" g="0.5" b="1" />
+          <Anchors>
+            <Anchor point="TOPLEFT" relativeKey="$parent.TitleContainer" relativePoint="BOTTOMLEFT" y="-12" />
+            <Anchor point="TOPRIGHT" relativeKey="$parent.TitleContainer" relativePoint="BOTTOMRIGHT" y="-12" />
+          </Anchors>
+        </FontString>
+      </Layer>
+    </Layers>
     <Frames>
       <ScrollFrame parentKey="Message" inherits="InputScrollFrameTemplate">
         <KeyValues>
@@ -16,8 +28,8 @@
         </KeyValues>
         <Size y="44" />
         <Anchors>
-          <Anchor point="TOPLEFT" relativeKey="$parent.TitleContainer" relativePoint="BOTTOMLEFT" y="-12" />
-          <Anchor point="TOPRIGHT" relativeKey="$parent.TitleContainer" relativePoint="BOTTOMRIGHT" y="-12" />
+          <Anchor point="TOPLEFT" relativeKey="$parent.Text" relativePoint="BOTTOMLEFT" y="-4" />
+          <Anchor point="TOPRIGHT" relativeKey="$parent.Text" relativePoint="BOTTOMRIGHT" y="-4" />
         </Anchors>
       </ScrollFrame>
       <EditBox parentKey="Recipient" letters="48" inherits="InputBoxTemplate" autoFocus="false">

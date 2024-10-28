@@ -87,12 +87,12 @@ end
 
 local function FindMatchingLink(chatMsgText, text)
     for link in chatMsgText:gmatch([[|c.-|H.-|h.-|h|r]]) do
-        if link:lower():find(text) then
+        if link:lower():find(text, nil, true) then
             return link
         end
         local item = Item:CreateFromItemLink(link)
         if item and not item:IsItemEmpty() and item:IsItemDataCached() then
-            if item:GetItemName():lower():find(text) then
+            if item:GetItemName():lower():find(text, nil, true) then
                 return link
             end
         end
@@ -100,7 +100,7 @@ local function FindMatchingLink(chatMsgText, text)
 end
 
 local function GetNameAndRealm(playerName)
-    if playerName:find('-') then
+    if playerName:find('-', nil, true) then
         return playerName
     else
         return playerName .. '-' .. GetRealmName()
@@ -171,10 +171,10 @@ function TradeWhisperMixin:CHAT_MSG_CHANNEL(...)
     if self:IsIgnoredSender(chatMsgSender) then return end
 
     for text, crafter in pairs(self.db.global.tradeScan) do
-        if chatMsgText:lower():find(text) and self:ValidCustomer(chatMsgSender, crafter) then
+        if chatMsgText:lower():find(text, nil, true) and self:ValidCustomer(chatMsgSender, crafter) then
             local link = FindMatchingLink(chatMsgText, text) or text
-            local msg = self:GetWhisperMessage(link, crafter)
-            self:Open(msg, chatMsgSender)
+            local reply = self:GetWhisperMessage(link, crafter)
+            self:Open(chatMsgText, reply, chatMsgSender)
             printf("%s : %s", chatMsgSender, chatMsgText)
             PlaySound(11466)
             return
@@ -269,7 +269,8 @@ function TradeWhisperMixin:SendWhisper()
     self:Hide()
 end
 
-function TradeWhisperMixin:Open(message, recipient)
+function TradeWhisperMixin:Open(text, message, recipient)
+    self.Text:SetText(text or "")
     self.Message.EditBox:SetText(message or "")
     self.Recipient:SetText(recipient or "")
     self:Show()
@@ -296,8 +297,6 @@ function TradeWhisperMixin:PLAYER_LOGIN()
     if TradeWhisperDB and TradeWhisperDB.tradeScan then
         TradeWhisperDB.global = TradeWhisperDB.global or {}
         TradeWhisperDB.global.tradeScan = TradeWhisperDB.tradeScan
-        TradeWhisperDB.tradeScan = nil
-        TradeWhisperDB.tradeIgnore = nil
     end
 
     self.db = LibStub("AceDB-3.0"):New("TradeWhisperDB", defaults, true)
