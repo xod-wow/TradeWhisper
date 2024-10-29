@@ -119,6 +119,11 @@ function TradeWhisperMixin:ValidCustomer(customerName, crafterName)
     return tContains(self.db.global.connectedRealms[crafterRealm] or {}, customerRealm)
 end
 
+function TradeWhisperMixin:IsCurrentRecipient(playerName)
+    playerName = GetNameAndRealm(playerName)
+    return playerName == GetNameAndRealm(self.Recipient:GetText())
+end
+
 function TradeWhisperMixin:IsIgnoredSender(playerName)
     playerName = GetNameAndRealm(playerName)
     return self:IsMe(playerName) or self.db.global.tradeIgnore[playerName] ~= nil
@@ -163,6 +168,10 @@ function TradeWhisperMixin:GetWhisperMessage(item, crafter)
     return self.db.global.message:gsub('{(.-)}', repl)
 end
 
+function TradeWhisperMixin:AddChatHistory(...)
+    table.insert(self.db.global.chatHistory, { time(), ... })
+end
+
 function TradeWhisperMixin:CHAT_MSG_CHANNEL(...)
     local zoneChannelID = select(7, ...)
     if zoneChannelID ~= 2 then return end
@@ -174,8 +183,8 @@ function TradeWhisperMixin:CHAT_MSG_CHANNEL(...)
         if chatMsgText:lower():find(text, nil, true) and self:ValidCustomer(chatMsgSender, crafter) then
             local link = FindMatchingLink(chatMsgText, text) or text
             local reply = self:GetWhisperMessage(link, crafter)
-            self:Open(chatMsgText, reply, chatMsgSender)
-            printf("%s : %s", chatMsgSender, chatMsgText)
+            self:AddChatHistory('CHANNEL', chatMsgText, chatMsgSender)
+            self:Open(chatMsgSender, reply)
             PlaySound(11466)
             return
         end
@@ -254,25 +263,57 @@ function TradeWhisperMixin:OnEvent(e, ...)
 end
 
 function TradeWhisperMixin:OnLoad()
-    self.Message.EditBox:SetFontObject(ChatFontNormal)
+    self.Conversation:SetFading(false)
+    self.Conversation:SetMaxLines(128)
+    self.Conversation:SetFontObject(ChatFontNormal)
+    self.Conversation:SetTextColor(1, 0.5, 1)
+    self.Conversation:SetIndentedWordWrap(true)
+    self.Conversation:SetJustifyH("LEFT")
+    ;self.Message.EditBox:SetFontObject(ChatFontNormal)
     self:RegisterEvent('PLAYER_LOGIN')
     self:SetTitle(addOnName)
 end
 
+function TradeWhisperMixin:OnShow()
+    self:RegisterEvent("CHAT_MSG_WHISPER")
+    self:RegisterEvent("CHAT_MSG_WHISPER_INFORM")
+end
+
 function TradeWhisperMixin:OnHide()
-    self.Message.EditBox:SetText('')
-    self.Recipient:SetText('')
+    self:UnregisterEvent("CHAT_MSG_WHISPER")
+    self:UnregisterEvent("CHAT_MSG_WHISPER_INFORM")
 end
 
 function TradeWhisperMixin:SendWhisper()
     SendChatMessage(self.Message.EditBox:GetText(), "WHISPER", nil, self.Recipient:GetText())
-    self:Hide()
+    self.Message.EditBox:SetText('')
 end
 
-function TradeWhisperMixin:Open(text, message, recipient)
-    self.Text:SetText(text or "")
-    self.Message.EditBox:SetText(message or "")
-    self.Recipient:SetText(recipient or "")
+function TradeWhisperMixin:UpdateConversation()
+    local conversationMessages = {}
+    for i = #self.db.global.chatHistory, 1, -1 do
+        local msgTime, msgType, msgText, msgPlayer = unpack(self.db.global.chatHistory[i])
+        if self:IsCurrentRecipient(msgPlayer) then
+            local timeStamp = BetterDate("%Y-%m-%d %H:%M:%S", msgTime)
+            local text
+            if msgType == 'WHISPER_INFORM' then
+                 text = string.format("%s To [%s] %s", timeStamp, msgPlayer, msgText)
+            else
+                 text = string.format("%s [%s] %s", timeStamp, msgPlayer, msgText)
+            end
+            table.insert(conversationMessages, 1, text)
+            if #conversationMessages >= 128 then break end
+        end
+    end
+    self.Conversation:Clear()
+    for _, text in ipairs(conversationMessages) do
+        self.Conversation:AddMessage(text)
+    end
+end
+
+function TradeWhisperMixin:Open(chatMsgSender, reply)
+    self.Message.EditBox:SetText(reply or "")
+    self.Recipient:SetText(chatMsgSender or "")
     self:Show()
 end
 
@@ -287,6 +328,7 @@ local defaults = {
         message = "I can craft {item}, guaranteed 5* with 3* mats. Send to {crafter} if interested. Let me know and I can do it now.",
         tradeScan = {},
         tradeIgnore = {},
+        chatHistory = {},
         connectedRealms = {},
     }
 }
@@ -307,4 +349,64 @@ function TradeWhisperMixin:PLAYER_LOGIN()
     self:UpdateConnectedRealms()
     self:SetupSlashCommand()
     self:UpdateScanning()
+end
+
+function TradeWhisperMixin:CHAT_MSG_WHISPER(text, remoteName)
+    remoteName = GetNameAndRealm(remoteName)
+    if self:IsCurrentRecipient(remoteName) then
+        self:AddChatHistory('WHISPER', text, remoteName)
+        self:UpdateConversation()
+    end
+end
+
+function TradeWhisperMixin:CHAT_MSG_WHISPER_INFORM(text, remoteName)
+    remoteName = GetNameAndRealm(remoteName)
+    if self:IsCurrentRecipient(remoteName) then
+        self:AddChatHistory('WHISPER_INFORM', text, remoteName)
+        self:UpdateConversation()
+    end
+end
+
+local AceSerializer = LibStub("AceSerializer-3.0")
+local LibDeflate = LibStub("LibDeflate")
+
+function TradeWhisperMixin:ExportDB()
+    local serialized = AceSerializer:Serialize({
+            global = self.db.sv.global,
+            profiles = self.db.sv.profiles,
+            char = self.db.sv.char,
+        })
+    local compressed = LibDeflate:CompressDeflate(serialized)
+    local encoded = LibDeflate:EncodeForPrint(compressed)
+    return encoded
+end
+
+-- We can't reload an AceDB in any way so we have to replace any table keys for
+-- tables that already exist and hope for the best.
+
+local function MixinRecursive(object, ...)
+    for i = 1, select("#", ...) do
+        local mixin = select(i, ...)
+        for k, v in pairs(mixin) do
+            if type(v) == 'table' and type(object[k]) == 'table' then
+                MixinRecursive(object[k], v)
+            else
+                object[k] = v
+            end
+        end
+    end
+    return object
+end
+
+function TradeWhisperMixin:ImportDB(encoded)
+    local compressed = LibDeflate:DecodeForPrint(encoded)
+    if not compressed then return end
+
+    local serialized = LibDeflate:DecompressDeflate(compressed)
+    if not serialized then return end
+
+    local isValid, data = AceSerializer:Deserialize(serialized)
+    if not isValid then return end
+
+    MixinRecursive(self.db.sv, data)
 end

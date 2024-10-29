@@ -3,23 +3,19 @@
   <Script file="TradeWhisper.lua"/>
 
   <Frame name="TradeWhisper" inherits="DefaultPanelFlatTemplate" mixin="TradeWhisperMixin" parent="UIParent" topLevel="true" movable="true" dontSavePosition="true" registerForDrag="LeftButton" frameStrata="FULLSCREEN_DIALOG" hidden="true">
-    <Size x="600" y="164" />
+    <Size x="600" y="364" />
     <Anchors>
       <Anchor point="CENTER" />
     </Anchors>
-    <Layers>
-      <Layer level="OVERLAY">
-        <FontString parentKey="Text" text="TheText" inherits="ChatFontNormal" wordwrap="true" justifyH="LEFT" justifyV="TOP">
-          <Size y="48" />
-          <Color r="1" g="0.5" b="1" />
-          <Anchors>
-            <Anchor point="TOPLEFT" relativeKey="$parent.TitleContainer" relativePoint="BOTTOMLEFT" y="-12" />
-            <Anchor point="TOPRIGHT" relativeKey="$parent.TitleContainer" relativePoint="BOTTOMRIGHT" y="-12" />
-          </Anchors>
-        </FontString>
-      </Layer>
-    </Layers>
     <Frames>
+      <ScrollingMessageFrame parentKey="Conversation">
+        <Size y="240" />
+        <Color r="1" g="0.5" b="1" />
+        <Anchors>
+          <Anchor point="TOPLEFT" relativeKey="$parent.TitleContainer" relativePoint="BOTTOMLEFT" y="-12" />
+          <Anchor point="TOPRIGHT" relativeKey="$parent.TitleContainer" relativePoint="BOTTOMRIGHT" y="-12" />
+        </Anchors>
+      </ScrollingMessageFrame>
       <ScrollFrame parentKey="Message" inherits="InputScrollFrameTemplate">
         <KeyValues>
           <KeyValue key="maxLetters" value="9999" type="number"/>
@@ -28,8 +24,8 @@
         </KeyValues>
         <Size y="44" />
         <Anchors>
-          <Anchor point="TOPLEFT" relativeKey="$parent.Text" relativePoint="BOTTOMLEFT" y="-4" />
-          <Anchor point="TOPRIGHT" relativeKey="$parent.Text" relativePoint="BOTTOMRIGHT" y="-4" />
+          <Anchor point="TOPLEFT" relativeKey="$parent.Conversation" relativePoint="BOTTOMLEFT" y="-12" />
+          <Anchor point="TOPRIGHT" relativeKey="$parent.Conversation" relativePoint="BOTTOMRIGHT" y="-12" />
         </Anchors>
       </ScrollFrame>
       <EditBox parentKey="Recipient" letters="48" inherits="InputBoxTemplate" autoFocus="false">
@@ -70,6 +66,7 @@
     </Frames>
     <Scripts>
       <OnLoad method="OnLoad" />
+      <OnShow method="OnShow" />
       <OnHide method="OnHide" />
       <OnEvent method="OnEvent" />
       <OnDragStart>

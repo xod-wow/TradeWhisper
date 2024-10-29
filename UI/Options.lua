@@ -10,6 +10,8 @@ local addOnName, addOnTable = ...
 
 local L = setmetatable({}, { __index=function(_,k) return k end })
 
+local AceGUI = LibStub("AceGUI-3.0")
+
 local order
 do
     local n = 0
@@ -142,8 +144,25 @@ local options = {
                     inline = true,
                     args = {},
                     plugins = {},
-                }
-            }
+                },
+            },
+        },
+        ImportExport = {
+            type = "group",
+            name = L["Import / Export"],
+            order = order(),
+            inline = false,
+            args = {
+                Text = {
+                    name = L["Import/Export String"],
+                    type = "input",
+                    width = "full",
+                    multiline = 22,
+                    confirm = function () end,
+                    set = function (_, text) TradeWhisper:ImportDB(text) end,
+                    get = function () return TradeWhisper:ExportDB() end,
+                },
+            },
         },
     },
 }
