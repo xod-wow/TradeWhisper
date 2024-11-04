@@ -2,13 +2,74 @@
 
   <Script file="TradeWhisper.lua"/>
 
+  <Frame name="TradeWhisperInputBorderArtTemplate" virtual="true">
+    <Layers>
+      <Layer level="BACKGROUND">
+        <Texture parentKey="TopLeftTex" file="Interface\Common\Common-Input-Border-TL">
+          <Size x="8" y="8"/>
+          <Anchors>
+            <Anchor point="TOPLEFT" x="-5" y="5"/>
+          </Anchors>
+        </Texture>
+        <Texture parentKey="TopRightTex" file="Interface\Common\Common-Input-Border-TR">
+          <Size x="8" y="8"/>
+          <Anchors>
+            <Anchor point="TOPRIGHT" x="5" y="5"/>
+          </Anchors>
+        </Texture>
+        <Texture parentKey="TopTex" file="Interface\Common\Common-Input-Border-T">
+          <Anchors>
+            <Anchor point="TOPLEFT" relativeKey="$parent.TopLeftTex" relativePoint="TOPRIGHT"/>
+            <Anchor point="BOTTOMRIGHT" relativeKey="$parent.TopRightTex" relativePoint="BOTTOMLEFT"/>
+          </Anchors>
+        </Texture>
+        <Texture parentKey="BottomLeftTex" file="Interface\Common\Common-Input-Border-BL">
+          <Size x="8" y="8"/>
+          <Anchors>
+            <Anchor point="BOTTOMLEFT" x="-5" y="-5"/>
+          </Anchors>
+        </Texture>
+        <Texture parentKey="BottomRightTex" file="Interface\Common\Common-Input-Border-BR">
+          <Size x="8" y="8"/>
+          <Anchors>
+            <Anchor point="BOTTOMRIGHT" x="5" y="-5"/>
+          </Anchors>
+        </Texture>
+        <Texture parentKey="BottomTex" file="Interface\Common\Common-Input-Border-B">
+          <Anchors>
+            <Anchor point="TOPLEFT" relativeKey="$parent.BottomLeftTex" relativePoint="TOPRIGHT"/>
+            <Anchor point="BOTTOMRIGHT" relativeKey="$parent.BottomRightTex" relativePoint="BOTTOMLEFT"/>
+          </Anchors>
+        </Texture>
+        <Texture parentKey="LeftTex" file="Interface\Common\Common-Input-Border-L">
+          <Anchors>
+            <Anchor point="TOPLEFT" relativeKey="$parent.TopLeftTex" relativePoint="BOTTOMLEFT"/>
+            <Anchor point="BOTTOMRIGHT" relativeKey="$parent.BottomLeftTex" relativePoint="TOPRIGHT"/>
+          </Anchors>
+        </Texture>
+        <Texture parentKey="RightTex" file="Interface\Common\Common-Input-Border-R">
+          <Anchors>
+            <Anchor point="TOPLEFT" relativeKey="$parent.TopRightTex" relativePoint="BOTTOMLEFT"/>
+            <Anchor point="BOTTOMRIGHT" relativeKey="$parent.BottomRightTex" relativePoint="TOPRIGHT"/>
+          </Anchors>
+        </Texture>
+        <Texture parentKey="MiddleTex" file="Interface\Common\Common-Input-Border-M">
+          <Anchors>
+            <Anchor point="TOPLEFT" relativeKey="$parent.LeftTex" relativePoint="TOPRIGHT"/>
+            <Anchor point="BOTTOMRIGHT" relativeKey="$parent.RightTex" relativePoint="BOTTOMLEFT"/>
+          </Anchors>
+        </Texture>
+      </Layer>
+    </Layers>
+  </Frame>
+
   <Frame name="TradeWhisper" inherits="DefaultPanelFlatTemplate" mixin="TradeWhisperMixin" parent="UIParent" topLevel="true" movable="true" dontSavePosition="true" registerForDrag="LeftButton" frameStrata="FULLSCREEN_DIALOG" hidden="true">
     <Size x="600" y="364" />
     <Anchors>
       <Anchor point="CENTER" />
     </Anchors>
     <Frames>
-      <ScrollingMessageFrame parentKey="Conversation">
+      <ScrollingMessageFrame parentKey="Conversation" inherits="TradeWhisperInputBorderArtTemplate">
         <Size y="240" />
         <Color r="1" g="0.5" b="1" />
         <Anchors>
@@ -33,6 +94,12 @@
         <Anchors>
           <Anchor point="TOP" relativeKey="$parent.Message" relativePoint="BOTTOM" y="-8" />
         </Anchors>
+        <Scripts>
+          <OnTextChanged>
+            local parent = self:GetParent()
+            if parent:IsShown() then parent:UpdateConversation() end
+          </OnTextChanged>
+        </Scripts>
       </EditBox>
       <Button parentKey="Send" inherits="UIPanelButtonTemplate" text="SEND_MESSAGE">
         <Size x="128" y="22" />

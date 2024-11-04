@@ -163,13 +163,17 @@ end
 function TradeWhisperMixin:GetWhisperMessage(item, crafter)
     local repl = {
         item = item,
-        crafter = self:IsMe(crafter) and "this character" or crafter,
+        crafter = self:IsMe(crafter) and "this character" or "my alt "..crafter,
     }
     return self.db.global.message:gsub('{(.-)}', repl)
 end
 
 function TradeWhisperMixin:AddChatHistory(...)
-    table.insert(self.db.global.chatHistory, { time(), ... })
+    -- Timestamps are only 1s granularity, so add an order received so that we
+    -- can sort them later and preserve the order correctly.
+
+    local n = #self.db.global.chatHistory
+    table.insert(self.db.global.chatHistory, { time(), n, ... })
 end
 
 function TradeWhisperMixin:CHAT_MSG_CHANNEL(...)
@@ -270,13 +274,16 @@ function TradeWhisperMixin:OnLoad()
     self.Conversation:SetIndentedWordWrap(true)
     self.Conversation:SetJustifyH("LEFT")
     ;self.Message.EditBox:SetFontObject(ChatFontNormal)
-    self:RegisterEvent('PLAYER_LOGIN')
+    self:RegisterEvent("PLAYER_LOGIN")
+    self:RegisterEvent("CRAFTINGORDERS_DISPLAY_CRAFTER_FULFILLED_MSG")
+    self:RegisterEvent("CRAFTINGORDERS_UPDATE_PERSONAL_ORDER_COUNTS")
     self:SetTitle(addOnName)
 end
 
 function TradeWhisperMixin:OnShow()
     self:RegisterEvent("CHAT_MSG_WHISPER")
     self:RegisterEvent("CHAT_MSG_WHISPER_INFORM")
+    self:UpdateConversation()
 end
 
 function TradeWhisperMixin:OnHide()
@@ -292,14 +299,16 @@ end
 function TradeWhisperMixin:UpdateConversation()
     local conversationMessages = {}
     for i = #self.db.global.chatHistory, 1, -1 do
-        local msgTime, msgType, msgText, msgPlayer = unpack(self.db.global.chatHistory[i])
+        local msgTime, _, msgType, msgText, msgPlayer = unpack(self.db.global.chatHistory[i])
         if self:IsCurrentRecipient(msgPlayer) then
             local timeStamp = BetterDate("%Y-%m-%d %H:%M:%S", msgTime)
             local text
             if msgType == 'WHISPER_INFORM' then
-                 text = string.format("%s To [%s] %s", timeStamp, msgPlayer, msgText)
+                text = string.format("%s To [%s] %s", timeStamp, msgPlayer, msgText)
+            elseif msgType == 'FULFILL' then
+                text = msgText
             else
-                 text = string.format("%s [%s] %s", timeStamp, msgPlayer, msgText)
+                text = string.format("%s [%s] %s", timeStamp, msgPlayer, msgText)
             end
             table.insert(conversationMessages, 1, text)
             if #conversationMessages >= 128 then break end
@@ -314,7 +323,11 @@ end
 function TradeWhisperMixin:Open(chatMsgSender, reply)
     self.Message.EditBox:SetText(reply or "")
     self.Recipient:SetText(chatMsgSender or "")
-    self:Show()
+    if self:IsShown() then
+        self:UpdateConversation()
+    else
+        self:Show()
+    end
 end
 
 function TradeWhisperMixin:UpdateConnectedRealms()
@@ -325,7 +338,7 @@ end
 
 local defaults = {
     global = {
-        message = "I can craft {item}, guaranteed 5* with 3* mats. Send to {crafter} if interested. Let me know and I can do it now.",
+        message = "I can craft {item} on {crafter}. Max spec, guaranteed 5* with 3* mats",
         tradeScan = {},
         tradeIgnore = {},
         chatHistory = {},
@@ -367,6 +380,33 @@ function TradeWhisperMixin:CHAT_MSG_WHISPER_INFORM(text, remoteName)
     end
 end
 
+-- Log all of these all the time, because I'm mostly doing them on another
+-- toon and without the whisper window open.
+function TradeWhisperMixin:CRAFTINGORDERS_DISPLAY_CRAFTER_FULFILLED_MSG(...)
+    local orderType, itemName, playerName, tipAmount, quantityCrafted = ...
+    if orderType == PROF_CRAFTING_ORDER_TYPE_PERSONAL then
+        playerName = GetNameAndRealm(playerName)
+        local money = GetMoneyString(tipAmount, true)
+        local msg
+        if quantityCrafted > 1 then
+            local fmt = CRAFTING_ORDERS_ORDER_FULFILLED_MULT_FMT
+            msg = fmt:format(orderType, itemName, playerName, quantityCrafted, money)
+        else
+            local fmt = CRAFTING_ORDERS_ORDER_FULFILLED_SINGLE_FMT
+            msg = fmt:format(orderType, itemName, playerName, money)
+        end
+        self:AddChatHistory('FULFILL', msg, playerName)
+        self:UpdateConversation()
+    end
+end
+
+function TradeWhisperMixin:CRAFTINGORDERS_UPDATE_PERSONAL_ORDER_COUNTS()
+    local infos = C_CraftingOrders.GetPersonalOrdersInfo()
+    if next(infos) then
+        -- PlaySound(77455)
+    end
+end
+
 local AceSerializer = LibStub("AceSerializer-3.0")
 local LibDeflate = LibStub("LibDeflate")
 
@@ -383,6 +423,12 @@ end
 
 -- We can't reload an AceDB in any way so we have to replace any table keys for
 -- tables that already exist and hope for the best.
+
+local function TableAppend(t1, t2)
+    for _,v in ipairs(t2) do table.insert(t1, v) end
+end
+
+-- Note that this will do bad things with indexed arrays.
 
 local function MixinRecursive(object, ...)
     for i = 1, select("#", ...) do
@@ -408,5 +454,23 @@ function TradeWhisperMixin:ImportDB(encoded)
     local isValid, data = AceSerializer:Deserialize(serialized)
     if not isValid then return end
 
-    MixinRecursive(self.db.sv, data)
+    Mixin(self.db.sv.global.tradeScan, data.global.tradeScan)
+    Mixin(self.db.sv.global.tradeIgnore, data.global.tradeIgnore)
+    Mixin(self.db.sv.global.connectedRealms, data.global.connectedRealms)
+
+    -- Chat history merge, bit complicated trying to keep it sorted etc.
+    TableAppend(self.db.sv.global.chatHistory, data.global.chatHistory)
+
+    -- local msgTime, n, msgType, msgText, msgPlayer = unpack(a)
+    local function chComp(a, b)
+        if a[1] == b[1] then
+            return a[2] < b[2]
+        else
+            return a[1] < b[1]
+        end
+    end
+    table.sort(self.db.sv.global.chatHistory, chComp)
+    for i, t in ipairs(self.db.sv.global.chatHistory) do
+        t[2] = i
+    end
 end
