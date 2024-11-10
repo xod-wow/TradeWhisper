@@ -90,7 +90,7 @@
         </Anchors>
       </ScrollFrame>
       <EditBox parentKey="Recipient" letters="48" inherits="InputBoxTemplate" autoFocus="false">
-        <Size x="256" y="22" />
+        <Size x="192" y="22" />
         <Anchors>
           <Anchor point="TOP" relativeKey="$parent.Message" relativePoint="BOTTOM" y="-8" />
         </Anchors>
@@ -101,6 +101,34 @@
           </OnTextChanged>
         </Scripts>
       </EditBox>
+      <DropDownButton parentKey="RecipientHistoryDropdownButton" mixin="TradeWhisperRecipientHistoryDropdownMixin">
+        <Size x="19" y="19" />
+        <KeyValues>
+          <KeyValue key="menuPoint" type="string" value="TOPRIGHT" />
+          <KeyValue key="menuRelativePoint" type="string" value="BOTTOMRIGHT" />
+        </KeyValues>
+        <Anchors>
+          <Anchor point="LEFT" relativePoint="RIGHT" relativeKey="$parent.Recipient" />
+        </Anchors>
+        <Layers>
+          <Layer>
+            <Texture parentKey="Texture">
+              <Anchors>
+                <Anchor point="RIGHT" relativePoint="RIGHT" x="2" y="-3"/>
+              </Anchors>
+            </Texture>
+          </Layer>
+        </Layers>
+        <Scripts>
+          <OnLoad method="OnLoad"/>
+          <OnEnter method="OnEnter"/>
+          <OnLeave method="OnLeave"/>
+          <OnMouseDown method="OnMouseDown"/>
+          <OnMouseUp method="OnMouseUp"/>
+          <OnEnable method="OnEnable"/>
+          <OnDisable method="OnDisable"/>
+        </Scripts>
+      </DropDownButton>
       <Button parentKey="Send" inherits="UIPanelButtonTemplate" text="SEND_MESSAGE">
         <Size x="128" y="22" />
         <Anchors>

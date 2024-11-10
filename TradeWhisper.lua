@@ -6,6 +6,9 @@
 
 local addOnName, addOnTable = ...
 
+local AceSerializer = LibStub("AceSerializer-3.0")
+local LibDeflate = LibStub("LibDeflate")
+
 local printTag = ORANGE_FONT_COLOR:WrapTextInColorCode(addOnName .. ": ")
 
 local function printf(fmt, ...)
@@ -27,6 +30,8 @@ function TradeWhisperMixin:PrintHelp()
     printf("  /tw ignore del playerName[-Realm]")
     printf("  /tw ignore clear")
     printf("  /tw ignore list")
+    printf("  /tw opt")
+    printf("  /tw show")
 end
 
 function TradeWhisperMixin:SlashCommand(arg)
@@ -42,6 +47,9 @@ function TradeWhisperMixin:SlashCommand(arg)
         return true
     elseif arg == 'opt' then
         LibStub("AceConfigDialog-3.0"):Open(addOnName)
+        return true
+    elseif arg == 'show' then
+        TradeWhisper:Show()
         return true
     end
 
@@ -119,9 +127,23 @@ function TradeWhisperMixin:ValidCustomer(customerName, crafterName)
     return tContains(self.db.global.connectedRealms[crafterRealm] or {}, customerRealm)
 end
 
-function TradeWhisperMixin:IsCurrentRecipient(playerName)
+function TradeWhisperMixin:IsCurrentCustomer(playerName)
     playerName = GetNameAndRealm(playerName)
     return playerName == GetNameAndRealm(self.Recipient:GetText())
+end
+
+function TradeWhisperMixin:IsRecentCustomer(playerName)
+    playerName = GetNameAndRealm(playerName)
+    local now = time()
+    for i, info in ipairs_reverse(self.db.global.chatHistory) do
+        local msgTime, _, _, _, msgPlayer = unpack(info)
+        if msgTime < now() - 600 then
+            break
+        elseif msgPlayer == playerName then
+            return true
+        end
+    end
+    return false
 end
 
 function TradeWhisperMixin:IsIgnoredSender(playerName)
@@ -172,8 +194,14 @@ function TradeWhisperMixin:AddChatHistory(...)
     -- Timestamps are only 1s granularity, so add an order received so that we
     -- can sort them later and preserve the order correctly.
 
-    local n = #self.db.global.chatHistory
-    table.insert(self.db.global.chatHistory, { time(), n, ... })
+    local n = #self.db.global.chatHistory + 1
+    if select('#', ...) == 3 then
+        data = { time(), n, ... }
+    else
+        local msgTime = ...
+        data = { msgTime, n, select(3, ...) }
+    end
+    table.insert(self.db.global.chatHistory, data)
 end
 
 function TradeWhisperMixin:CHAT_MSG_CHANNEL(...)
@@ -266,6 +294,35 @@ function TradeWhisperMixin:OnEvent(e, ...)
     if self[e] then self[e](self, ...) end
 end
 
+TradeWhisperRecipientHistoryDropdownMixin = CreateFromMixins(ButtonStateBehaviorMixin)
+
+function TradeWhisperRecipientHistoryDropdownMixin:OnButtonStateChanged()
+    local atlas = GetWowStyle1ArrowButtonState(self)
+    self.Texture:SetAtlas(atlas, true)
+end
+
+local function IsSelected(playerName)
+    return playerName == TradeWhisper.Recipient:GetText()
+end
+
+local function SetSelected(playerName)
+    TradeWhisper.Recipient:SetText(playerName)
+end
+
+function TradeWhisperRecipientHistoryDropdownMixin:OnLoad()
+    ButtonStateBehaviorMixin.OnLoad(self)
+
+    self:SetupMenu(
+        function(dropdown, rootDescription)
+            local customerList = TradeWhisper:GetCustomerList()
+            rootDescription:SetTag("Recipients")
+            rootDescription:SetScrollMode(300)
+            for _,playerName in ipairs(customerList) do
+                rootDescription:CreateRadio(playerName, IsSelected, SetSelected, playerName)
+            end
+        end)
+end
+
 function TradeWhisperMixin:OnLoad()
     self.Conversation:SetFading(false)
     self.Conversation:SetMaxLines(128)
@@ -273,10 +330,11 @@ function TradeWhisperMixin:OnLoad()
     self.Conversation:SetTextColor(1, 0.5, 1)
     self.Conversation:SetIndentedWordWrap(true)
     self.Conversation:SetJustifyH("LEFT")
-    ;self.Message.EditBox:SetFontObject(ChatFontNormal)
+    self.Message.EditBox:SetFontObject(ChatFontNormal)
     self:RegisterEvent("PLAYER_LOGIN")
     self:RegisterEvent("CRAFTINGORDERS_DISPLAY_CRAFTER_FULFILLED_MSG")
     self:RegisterEvent("CRAFTINGORDERS_UPDATE_PERSONAL_ORDER_COUNTS")
+    C_ChatInfo.RegisterAddonMessagePrefix(addOnName)
     self:SetTitle(addOnName)
 end
 
@@ -300,13 +358,13 @@ function TradeWhisperMixin:UpdateConversation()
     local conversationMessages = {}
     for i = #self.db.global.chatHistory, 1, -1 do
         local msgTime, _, msgType, msgText, msgPlayer = unpack(self.db.global.chatHistory[i])
-        if self:IsCurrentRecipient(msgPlayer) then
+        if self:IsCurrentCustomer(msgPlayer) then
             local timeStamp = BetterDate("%Y-%m-%d %H:%M:%S", msgTime)
             local text
             if msgType == 'WHISPER_INFORM' then
                 text = string.format("%s To [%s] %s", timeStamp, msgPlayer, msgText)
             elseif msgType == 'FULFILL' then
-                text = msgText
+                text = string.format("%s %s", timeStamp, msgText)
             else
                 text = string.format("%s [%s] %s", timeStamp, msgPlayer, msgText)
             end
@@ -334,6 +392,27 @@ function TradeWhisperMixin:UpdateConnectedRealms()
     for _, r in ipairs(GetAutoCompleteRealms()) do
         self.db.global.connectedRealms[r] = GetAutoCompleteRealms()
     end
+end
+
+function TradeWhisperMixin:GetCustomerList()
+    local customerLastMessageTimes = {}
+
+    if not self.db then
+        return {}
+    end
+
+    -- chatHistory is already in chronological order
+    for _, info in ipairs(self.db.global.chatHistory) do
+        local msgTime, _, _, _, msgPlayer = unpack(info)
+        customerLastMessageTimes[msgPlayer] = msgTime
+    end
+
+    local customerList = GetKeysArray(customerLastMessageTimes)
+    table.sort(customerList,
+        function (a, b)
+            return customerLastMessageTimes[a] > customerLastMessageTimes[b]
+        end)
+    return customerList
 end
 
 local defaults = {
@@ -366,7 +445,7 @@ end
 
 function TradeWhisperMixin:CHAT_MSG_WHISPER(text, remoteName)
     remoteName = GetNameAndRealm(remoteName)
-    if self:IsCurrentRecipient(remoteName) then
+    if self:IsRecentCustomer(remoteName) then
         self:AddChatHistory('WHISPER', text, remoteName)
         self:UpdateConversation()
     end
@@ -374,7 +453,7 @@ end
 
 function TradeWhisperMixin:CHAT_MSG_WHISPER_INFORM(text, remoteName)
     remoteName = GetNameAndRealm(remoteName)
-    if self:IsCurrentRecipient(remoteName) then
+    if self:IsRecentCustomer(remoteName) then
         self:AddChatHistory('WHISPER_INFORM', text, remoteName)
         self:UpdateConversation()
     end
@@ -403,12 +482,9 @@ end
 function TradeWhisperMixin:CRAFTINGORDERS_UPDATE_PERSONAL_ORDER_COUNTS()
     local infos = C_CraftingOrders.GetPersonalOrdersInfo()
     if next(infos) then
-        -- PlaySound(77455)
+        PlaySoundFile(1313269)
     end
 end
-
-local AceSerializer = LibStub("AceSerializer-3.0")
-local LibDeflate = LibStub("LibDeflate")
 
 function TradeWhisperMixin:ExportDB()
     local serialized = AceSerializer:Serialize({
