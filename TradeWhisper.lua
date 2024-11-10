@@ -137,7 +137,7 @@ function TradeWhisperMixin:IsRecentCustomer(playerName)
     local now = time()
     for i, info in ipairs_reverse(self.db.global.chatHistory) do
         local msgTime, _, _, _, msgPlayer = unpack(info)
-        if msgTime < now() - 600 then
+        if msgTime < now - 600 then
             break
         elseif msgPlayer == playerName then
             return true
