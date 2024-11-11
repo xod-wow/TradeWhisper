@@ -332,6 +332,8 @@ function TradeWhisperMixin:OnLoad()
     self.Conversation:SetJustifyH("LEFT")
     self.Message.EditBox:SetFontObject(ChatFontNormal)
     self:RegisterEvent("PLAYER_LOGIN")
+    self:RegisterEvent("CHAT_MSG_WHISPER")
+    self:RegisterEvent("CHAT_MSG_WHISPER_INFORM")
     self:RegisterEvent("CRAFTINGORDERS_DISPLAY_CRAFTER_FULFILLED_MSG")
     self:RegisterEvent("CRAFTINGORDERS_UPDATE_PERSONAL_ORDER_COUNTS")
     C_ChatInfo.RegisterAddonMessagePrefix(addOnName)
@@ -339,14 +341,10 @@ function TradeWhisperMixin:OnLoad()
 end
 
 function TradeWhisperMixin:OnShow()
-    self:RegisterEvent("CHAT_MSG_WHISPER")
-    self:RegisterEvent("CHAT_MSG_WHISPER_INFORM")
     self:UpdateConversation()
 end
 
 function TradeWhisperMixin:OnHide()
-    self:UnregisterEvent("CHAT_MSG_WHISPER")
-    self:UnregisterEvent("CHAT_MSG_WHISPER_INFORM")
 end
 
 function TradeWhisperMixin:SendWhisper()
