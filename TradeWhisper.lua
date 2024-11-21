@@ -132,12 +132,14 @@ function TradeWhisperMixin:IsCurrentCustomer(playerName)
     return playerName == GetNameAndRealm(self.Recipient:GetText())
 end
 
-function TradeWhisperMixin:IsRecentCustomer(playerName)
+function TradeWhisperMixin:IsRecentCustomer(playerName, seconds)
     playerName = GetNameAndRealm(playerName)
     local now = time()
     for i, info in ipairs_reverse(self.db.global.chatHistory) do
         local msgTime, _, _, _, msgPlayer = unpack(info)
-        if msgTime < now - 600 then
+        if seconds == 0 then
+            return true
+        elseif msgTime < now - seconds then
             break
         elseif msgPlayer == playerName then
             return true
@@ -330,6 +332,7 @@ function TradeWhisperMixin:OnLoad()
     self.Conversation:SetTextColor(1, 0.5, 1)
     self.Conversation:SetIndentedWordWrap(true)
     self.Conversation:SetJustifyH("LEFT")
+    ScrollUtil.InitScrollingMessageFrameWithScrollBar(self.Conversation, self.Conversation.ScrollBar)
     self.Message.EditBox:SetFontObject(ChatFontNormal)
     self:RegisterEvent("PLAYER_LOGIN")
     self:RegisterEvent("CHAT_MSG_WHISPER")
@@ -435,15 +438,17 @@ function TradeWhisperMixin:PLAYER_LOGIN()
 
     self.playerName = string.format('%s-%s', UnitFullName('player'))
     self.validRealms = GetAutoCompleteRealms()
+    self.loginTime = time()
 
     self:UpdateConnectedRealms()
+    self:UpdatePersonalOrders()
     self:SetupSlashCommand()
     self:UpdateScanning()
 end
 
 function TradeWhisperMixin:CHAT_MSG_WHISPER(text, remoteName)
     remoteName = GetNameAndRealm(remoteName)
-    if self:IsRecentCustomer(remoteName) then
+    if self:IsRecentCustomer(remoteName, 600) then
         self:AddChatHistory('WHISPER', text, remoteName)
         self:UpdateConversation()
     end
@@ -451,7 +456,8 @@ end
 
 function TradeWhisperMixin:CHAT_MSG_WHISPER_INFORM(text, remoteName)
     remoteName = GetNameAndRealm(remoteName)
-    if self:IsRecentCustomer(remoteName) then
+    local secondsSinceLogin = time() - self.loginTime
+    if self:IsRecentCustomer(remoteName, math.max(secondsSinceLogin, 600)) then
         self:AddChatHistory('WHISPER_INFORM', text, remoteName)
         self:UpdateConversation()
     end
@@ -477,11 +483,16 @@ function TradeWhisperMixin:CRAFTINGORDERS_DISPLAY_CRAFTER_FULFILLED_MSG(...)
     end
 end
 
-function TradeWhisperMixin:CRAFTINGORDERS_UPDATE_PERSONAL_ORDER_COUNTS()
-    local infos = C_CraftingOrders.GetPersonalOrdersInfo()
-    if next(infos) then
+function TradeWhisperMixin:UpdatePersonalOrders()
+    local prevCount = self.personalOrderCount or 0
+    self.personalOrderCount = #C_CraftingOrders.GetPersonalOrdersInfo()
+    if self.personalOrderCount > prevCount then
         PlaySoundFile(1313269)
     end
+end
+
+function TradeWhisperMixin:CRAFTINGORDERS_UPDATE_PERSONAL_ORDER_COUNTS()
+    self:UpdatePersonalOrders()
 end
 
 function TradeWhisperMixin:ExportDB()

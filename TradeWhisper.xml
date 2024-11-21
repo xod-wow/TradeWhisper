@@ -72,6 +72,14 @@
       <ScrollingMessageFrame parentKey="Conversation" inherits="TradeWhisperInputBorderArtTemplate">
         <Size y="240" />
         <Color r="1" g="0.5" b="1" />
+        <Frames>
+          <EventFrame parentKey="ScrollBar" inherits="MinimalScrollBar">
+            <Anchors>
+              <Anchor point="TOPLEFT" relativePoint="TOPRIGHT" x="6" />
+              <Anchor point="BOTTOM" />
+            </Anchors>
+          </EventFrame>
+        </Frames>
         <Anchors>
           <Anchor point="TOPLEFT" relativeKey="$parent.TitleContainer" relativePoint="BOTTOMLEFT" y="-12" />
           <Anchor point="TOPRIGHT" relativeKey="$parent.TitleContainer" relativePoint="BOTTOMRIGHT" y="-12" />
