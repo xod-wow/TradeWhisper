@@ -174,20 +174,26 @@ local function GenerateOptions()
 
     for i, text in ipairs(scanKeys) do
         local crafter = TradeWhisper.db.global.tradeScan[text]
-        scanList["scanCrafter"..i] = {
+        scanList["index"..i] = {
             order = 10*i+1,
+            name = tostring(i),
+            type = "description",
+            width = 0.2,
+        }
+        scanList["scanCrafter"..i] = {
+            order = 10*i+2,
             name = crafter,
             type = "description",
-            width = 1.4,
+            width = 1.2,
         }
         scanList["scanText"..i] = {
-            order = 10*i+2,
+            order = 10*i+3,
             name = text,
             type = "description",
-            width = 1.4,
+            width = 1.6,
         }
         scanList["delete"..i] = {
-            order = 10*i+3,
+            order = 10*i+4,
             name = DELETE,
             type = "execute",
             func = function () TradeWhisper:ScanDel(text) end,
@@ -201,18 +207,24 @@ local function GenerateOptions()
     local ignoreList = {}
 
     for i, playerName in ipairs(ignoreKeys) do
+        ignoreList["index"..i] = {
+            name = tostring(i),
+            type = "description",
+            width = 0.2,
+            order = 10*i+1,
+        }
         ignoreList["playerName"..i] = {
             name = playerName,
             type = "description",
-            width = 2.0,
-            order = 10*i+1,
+            width = 2.8,
+            order = 10*i+2,
         }
         ignoreList["delete"..i] = {
             name = DELETE,
             type = "execute",
             func = function () TradeWhisper:IgnoreDel(playerName) end,
             width = 0.5,
-            order = 10*i+2,
+            order = 10*i+3,
         }
     end
     options.args.IgnoreGroup.args.IgnoreList.plugins.ignoreList = ignoreList
