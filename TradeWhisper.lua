@@ -31,6 +31,7 @@ function TradeWhisperMixin:PrintHelp()
     printf("  /tw ignore clear")
     printf("  /tw ignore list")
     printf("  /tw opt")
+    printf("  /tw scan")
     printf("  /tw show")
 end
 
@@ -49,7 +50,10 @@ function TradeWhisperMixin:SlashCommand(arg)
         LibStub("AceConfigDialog-3.0"):Open(addOnName)
         return true
     elseif arg == 'show' then
-        TradeWhisper:Show()
+        self:Show()
+        return true
+    elseif arg == 'scan' then
+        self:ScanOpenTradeSkill()
         return true
     end
 
@@ -91,6 +95,90 @@ function TradeWhisperMixin:SetupSlashCommand()
     SlashCmdList['TradeWhisper'] = function (...) self:SlashCommand(...) end
     _G.SLASH_TradeWhisper1 = "/tradewhisper"
     _G.SLASH_TradeWhisper2 = "/tw"
+end
+
+function TradeWhisperMixin:ScanOpenTradeSkill()
+    local function GetBestItemID(reagents)
+       local bestItemID, bestQuality
+       for _, r in ipairs(reagents) do
+          local quality = C_TradeSkillUI.GetItemReagentQualityByItemInfo(r.itemID)
+          if not bestQuality or quality > bestQuality then
+             bestQuality, bestItemID = quality, r.itemID
+          end
+       end
+       return bestItemID
+    end
+
+    local allowedDataSlotTypes = {
+       -- [Enum.TradeskillSlotDataType.Reagent] = true,
+       [Enum.TradeskillSlotDataType.ModifiedReagent] = true,
+    }
+
+    local allowedReagentTypes = {
+       [Enum.CraftingReagentType.Basic] = true,
+       [Enum.CraftingReagentType.Finishing] = true,
+    }
+
+    local function ShouldUseReagent(rss)
+       if not allowedDataSlotTypes[rss.dataSlotType] then
+          return false
+       elseif not allowedReagentTypes[rss.reagentType] then
+          return false
+       else
+          return true
+       end
+    end
+
+    local function CreateBestReagentsTable(recipeID)
+       local out = {}
+       local schematic = C_TradeSkillUI.GetRecipeSchematic(recipeID, false)
+       for i, rss in ipairs(schematic.reagentSlotSchematics) do
+          if ShouldUseReagent(rss) then
+             local itemID = GetBestItemID(rss.reagents)
+             local info = Professions.CreateCraftingReagentInfo(itemID, rss.dataSlotIndex, rss.quantityRequired)
+             table.insert(out, info)
+          end
+       end
+       return out
+    end
+
+    local allowItemClass = {
+       [Enum.ItemClass.Armor] = true,
+       [Enum.ItemClass.Weapon] = true,
+       [Enum.ItemClass.Profession] = true,
+    }
+
+    local function ShouldScanRecipe(recipeID)
+        local profInfo = C_TradeSkillUI.GetProfessionInfoByRecipeID(recipeID)
+        local link = C_TradeSkillUI.GetRecipeItemLink(recipeID)
+        local classID, subClassID = select(6, C_Item.GetItemInfoInstant(link))
+        if profInfo.expansionName == "Khaz Algar" and allowItemClass[classID] then
+            return true
+        end
+    end
+
+    local function ScanRecipe(recipeID)
+        local reagents = CreateBestReagentsTable(recipeID)
+        local opInfo = C_TradeSkillUI.GetCraftingOperationInfo(recipeID, reagents, nil, false)
+        if opInfo and opInfo.baseDifficulty == opInfo.lowerSkillThreshold then
+            return C_TradeSkillUI.GetRecipeItemLink(recipeID)
+        end
+    end
+
+    local allRecipes = C_TradeSkillUI.GetAllRecipeIDs()
+
+    for _, recipeID in ipairs(allRecipes) do
+        if ShouldScanRecipe(recipeID) then
+            local link = ScanRecipe(recipeID)
+            if link then
+                local item = Item:CreateFromItemLink(link)
+                item:ContinueOnItemLoad(
+                    function ()
+                        self:ScanAdd(self.playerName, item:GetItemName())
+                    end)
+            end
+        end
+    end
 end
 
 local function FindMatchingLink(chatMsgText, text)
