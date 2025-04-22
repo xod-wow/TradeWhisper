@@ -8,6 +8,7 @@ local addOnName, addOnTable = ...
 
 local AceSerializer = LibStub("AceSerializer-3.0")
 local LibDeflate = LibStub("LibDeflate")
+local Chomp = LibStub("Chomp")
 
 local printTag = ORANGE_FONT_COLOR:WrapTextInColorCode(addOnName .. ": ")
 
@@ -97,6 +98,20 @@ function TradeWhisperMixin:SetupSlashCommand()
     _G.SLASH_TradeWhisper2 = "/tw"
 end
 
+function TradeWhisperMixin:ReceiveComms(prefix, message, distribution, sender)
+    local isValid, data = self:DecodeDB(message)
+    DevTools_Dump(data)
+end
+
+function TradeWhisperMixin:SendDatabase(recipient)
+    local messageOptions = {
+        serialize = false,
+        binaryBlob = true
+    }
+    local message = self:ExportDB()
+    Chomp.SmartAddonMessage(addOnName, message, "WHISPER", recipient, messageOptions)
+end
+
 function TradeWhisperMixin:ScanOpenTradeSkill()
     local function GetBestItemID(reagents)
        local bestItemID, bestQuality
@@ -149,12 +164,20 @@ function TradeWhisperMixin:ScanOpenTradeSkill()
     }
 
     local function ShouldScanRecipe(recipeID)
+        local recipeInfo = C_TradeSkillUI.GetRecipeInfo(recipeID)
+        if recipeInfo.learned == false then
+            return false
+        end
         local profInfo = C_TradeSkillUI.GetProfessionInfoByRecipeID(recipeID)
         local link = C_TradeSkillUI.GetRecipeItemLink(recipeID)
         local classID, subClassID = select(6, C_Item.GetItemInfoInstant(link))
-        if profInfo.expansionName == "Khaz Algar" and allowItemClass[classID] then
-            return true
+        if profInfo.expansionName ~= "Khaz Algar" then
+            return false
         end
+        if not allowItemClass[classID] then
+            return false
+        end
+        return true
     end
 
     local function ScanRecipe(recipeID)
@@ -528,6 +551,8 @@ function TradeWhisperMixin:PLAYER_LOGIN()
     self.validRealms = GetAutoCompleteRealms()
     self.loginTime = time()
 
+    Chomp.RegisterAddonPrefix(addOnName, function (...) self:ReceiveComms(...) end)
+
     self:UpdateConnectedRealms()
     self:UpdatePersonalOrders()
     self:SetupSlashCommand()
@@ -617,7 +642,7 @@ local function MixinRecursive(object, ...)
     return object
 end
 
-function TradeWhisperMixin:ImportDB(encoded)
+function TradeWhisperMixin:DecodeDB(encoded)
     local compressed = LibDeflate:DecodeForPrint(encoded)
     if not compressed then return end
 
@@ -625,6 +650,12 @@ function TradeWhisperMixin:ImportDB(encoded)
     if not serialized then return end
 
     local isValid, data = AceSerializer:Deserialize(serialized)
+    return isValid, data
+end
+
+function TradeWhisperMixin:ImportDB(encoded)
+    local isValid, data = self:DecodeDB(encoded)
+
     if not isValid then return end
 
     Mixin(self.db.sv.global.tradeScan, data.global.tradeScan)

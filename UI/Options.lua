@@ -184,13 +184,13 @@ local function GenerateOptions()
             order = 10*i+2,
             name = crafter,
             type = "description",
-            width = 1.2,
+            width = 1.1,
         }
         scanList["scanText"..i] = {
             order = 10*i+3,
             name = text,
             type = "description",
-            width = 1.6,
+            width = 1.7,
         }
         scanList["delete"..i] = {
             order = 10*i+4,
