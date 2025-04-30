@@ -6,8 +6,6 @@
 
 local addOnName, addOnTable = ...
 
-local AceSerializer = LibStub("AceSerializer-3.0")
-local LibDeflate = LibStub("LibDeflate")
 local Chomp = LibStub("Chomp")
 
 local printTag = ORANGE_FONT_COLOR:WrapTextInColorCode(addOnName .. ": ")
@@ -72,6 +70,9 @@ function TradeWhisperMixin:SlashCommand(arg)
     elseif arg1 == 'ignore' and arg2 == 'list' then
         self:IgnoreList()
         return true
+    elseif arg1 == 'auth' and arg2 then
+        self.db.global.authorizedDBSenders[arg2] = true
+        return true
     end
 
     -- Three arg
@@ -99,8 +100,12 @@ function TradeWhisperMixin:SetupSlashCommand()
 end
 
 function TradeWhisperMixin:ReceiveComms(prefix, message, distribution, sender)
-    local isValid, data = self:DecodeDB(message)
-    DevTools_Dump(data)
+    if self.authorizedDBSenders[sender] then
+        printf("Importing DB transmit from " .. sender)
+        self:ImportDB(message)
+    else
+        printf("Ignoring DB transmit from " .. sender)
+    end
 end
 
 function TradeWhisperMixin:SendDatabase(recipient)
@@ -307,6 +312,8 @@ function TradeWhisperMixin:AddChatHistory(...)
     -- Timestamps are only 1s granularity, so add an order received so that we
     -- can sort them later and preserve the order correctly.
 
+    local data
+
     local n = #self.db.global.chatHistory + 1
     if select('#', ...) == 3 then
         data = { time(), n, ... }
@@ -426,7 +433,7 @@ function TradeWhisperRecipientHistoryDropdownMixin:OnLoad()
     ButtonStateBehaviorMixin.OnLoad(self)
 
     self:SetupMenu(
-        function(dropdown, rootDescription)
+        function(_, rootDescription)
             local customerList = TradeWhisper:GetCustomerList()
             rootDescription:SetTag("Recipients")
             rootDescription:SetScrollMode(300)
@@ -456,9 +463,6 @@ end
 
 function TradeWhisperMixin:OnShow()
     self:UpdateConversation()
-end
-
-function TradeWhisperMixin:OnHide()
 end
 
 function TradeWhisperMixin:SendWhisper()
@@ -534,6 +538,7 @@ local defaults = {
         tradeIgnore = {},
         chatHistory = {},
         connectedRealms = {},
+        authorizedDBSenders = {},
     }
 }
 
@@ -609,72 +614,51 @@ function TradeWhisperMixin:CRAFTINGORDERS_UPDATE_PERSONAL_ORDER_COUNTS()
 end
 
 function TradeWhisperMixin:ExportDB()
-    local serialized = AceSerializer:Serialize({
-            global = self.db.sv.global,
-            profiles = self.db.sv.profiles,
-            char = self.db.sv.char,
-        })
-    local compressed = LibDeflate:CompressDeflate(serialized)
-    local encoded = LibDeflate:EncodeForPrint(compressed)
-    return encoded
+    local data = {
+        global = self.db.sv.global,
+        profiles = self.db.sv.profiles,
+        char = self.db.sv.char,
+    }
+    return C_EncodingUtil.EncodeBase64( C_EncodingUtil.CompressString( C_EncodingUtil.SerializeCBOR( data )))
+end
+
+function TradeWhisperMixin:DecodeDB(encoded)
+    local compressed = C_EncodingUtil.DecodeBase64(encoded)
+    if not compressed then return end
+
+    local serialized = C_EncodingUtil.DecompressString(compresssed)
+    if not serialized then return end
+
+    return C_EncodingUtil.DeserializeCBOR(serialized)
+end
+
+-- Chat history merge, bit complicated trying to keep it sorted etc.
+
+function TradeWhisperMixin:MergeChatHistory(newChatHistory)
+    local mergedHistory = CopyTable(self.db.sv.global.chatHistory)
+    tAppendAll(mergedHistory, newChatHistory)
+
+    -- local msgTime, n, msgType, msgText, msgPlayer = unpack(a)
+    local function comp(a, b) if a[1] ~= b[1] then return a[1] < b[1] else return a[2] < b[2] end end
+    local function key(a) return a[1]..a[3]..a[4]..a[5] end
+
+    -- Dedup, sort and renumber
+    mergedHistory = TableUtil.CopyUniqueByPredicate(mergedHistory, true, key)
+    table.sort(mergedHistory, comp)
+    for i, t in ipairs(mergedHistory) do t[2] = i end
+    table.wipe(self.db.sv.global.chatHistory)
+    tAppendAll(self.db.sv.global.chatHistory, mergedHistory)
 end
 
 -- We can't reload an AceDB in any way so we have to replace any table keys for
 -- tables that already exist and hope for the best.
 
-local function TableAppend(t1, t2)
-    for _,v in ipairs(t2) do table.insert(t1, v) end
-end
-
--- Note that this will do bad things with indexed arrays.
-
-local function MixinRecursive(object, ...)
-    for i = 1, select("#", ...) do
-        local mixin = select(i, ...)
-        for k, v in pairs(mixin) do
-            if type(v) == 'table' and type(object[k]) == 'table' then
-                MixinRecursive(object[k], v)
-            else
-                object[k] = v
-            end
-        end
-    end
-    return object
-end
-
-function TradeWhisperMixin:DecodeDB(encoded)
-    local compressed = LibDeflate:DecodeForPrint(encoded)
-    if not compressed then return end
-
-    local serialized = LibDeflate:DecompressDeflate(compressed)
-    if not serialized then return end
-
-    local isValid, data = AceSerializer:Deserialize(serialized)
-    return isValid, data
-end
-
 function TradeWhisperMixin:ImportDB(encoded)
-    local isValid, data = self:DecodeDB(encoded)
-
-    if not isValid then return end
+    local data = self:DecodeDB(encoded)
+    if not data then return end
 
     Mixin(self.db.sv.global.tradeScan, data.global.tradeScan)
     Mixin(self.db.sv.global.tradeIgnore, data.global.tradeIgnore)
     Mixin(self.db.sv.global.connectedRealms, data.global.connectedRealms)
-
-    -- Chat history merge, bit complicated trying to keep it sorted etc.
-    TableAppend(self.db.sv.global.chatHistory, data.global.chatHistory)
-
-    -- local msgTime, n, msgType, msgText, msgPlayer = unpack(a)
-    local function chComp(a, b)
-        if a[1] == b[1] then
-            return a[2] < b[2]
-        else
-            return a[1] < b[1]
-        end
-    end
-    table.sort(self.db.sv.global.chatHistory, chComp)
-    for i, t in ipairs(self.db.sv.global.chatHistory) do
-        t[2] = i
-    end
+    self:MergeChatHistory(data.global.chatHistory)
 end
