@@ -63,7 +63,7 @@
     </Layers>
   </Frame>
 
-  <Frame name="TradeWhisper" inherits="DefaultPanelFlatTemplate" mixin="TradeWhisperMixin" parent="UIParent" topLevel="true" movable="true" dontSavePosition="true" registerForDrag="LeftButton" frameStrata="FULLSCREEN_DIALOG" hidden="true">
+  <Frame name="TradeWhisper" inherits="DefaultPanelFlatTemplate" mixin="TradeWhisperMixin" parent="UIParent" topLevel="true" movable="true" dontSavePosition="true" registerForDrag="LeftButton" hidden="true">
     <Size x="600" y="364" />
     <Anchors>
       <Anchor point="CENTER" />
