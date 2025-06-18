@@ -1,4 +1,4 @@
-## Interface: 110105
+## Interface: 110107
 ## Title: TradeWhisper
 ## Version: @project-version@
 ## Author: Xodiv-Nagrand
