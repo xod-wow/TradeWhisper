@@ -370,7 +370,8 @@ function TradeWhisperMixin:CHAT_MSG_CHANNEL(...)
         local reply = self:GetWhisperMessage(found)
         self:AddChatHistory('CHANNEL', chatMsgText, chatMsgSender)
         self:SetRecipient(chatMsgSender)
-        self:Open(reply)
+        self:SetPendingMessage(reply)
+        self:Show()
         PlaySound(11466)
     end
 end
@@ -459,6 +460,7 @@ end
 
 local function SetSelected(playerName)
     TradeWhisper:SetRecipient(playerName)
+    TradeWhisper:UpdateConversation()
 end
 
 function TradeWhisperRecipientHistoryDropdownMixin:OnLoad()
@@ -476,8 +478,19 @@ function TradeWhisperRecipientHistoryDropdownMixin:OnLoad()
 end
 
 function TradeWhisperMixin:SetRecipient(playerName)
-    TradeWhisper.currentRecipient = playerName
-    self:UpdateConversation()
+    self.currentRecipient = playerName
+end
+
+function TradeWhisperMixin:SetPendingMessage(message)
+    if message and self.currentRecipient then
+        self.pendingMessages[self.currentRecipient] = message
+    end
+end
+
+function TradeWhisperMixin:GetPendingMessage()
+    if self.currentRecipient then
+        return self.pendingMessages[self.currentRecipient]
+    end
 end
 
 function TradeWhisperMixin:OnLoad()
@@ -496,6 +509,8 @@ function TradeWhisperMixin:OnLoad()
     self:RegisterEvent("CRAFTINGORDERS_UPDATE_PERSONAL_ORDER_COUNTS")
     C_ChatInfo.RegisterAddonMessagePrefix(addOnName)
     self:SetTitle(addOnName)
+    self.pendingMessages = {}
+    self.Message.EditBox:SetScript('OnChar', function (editBox) self:SetPendingMessage(editBox:GetText()) end)
 end
 
 function TradeWhisperMixin:OnShow()
@@ -504,7 +519,8 @@ end
 
 function TradeWhisperMixin:SendWhisper()
     SendChatMessage(self.Message.EditBox:GetText(), "WHISPER", nil, self.currentRecipient)
-    self.Message.EditBox:SetText('')
+    self.pendingMessages[self.currentRecipient] = nil
+    -- self:UpdateConversation() -- not required since CHAT_MSG_WHISPER_INFORM will fire
 end
 
 function TradeWhisperMixin:UpdateConversation()
@@ -534,11 +550,7 @@ function TradeWhisperMixin:UpdateConversation()
         self.Conversation:AddMessage(text)
     end
     self.Recipient:SetText(self.currentRecipient or "")
-end
-
-function TradeWhisperMixin:Open(reply)
-    self.Message.EditBox:SetText(reply or "")
-    self:UpdateConversation()
+    self.Message.EditBox:SetText(self:GetPendingMessage() or "")
 end
 
 function TradeWhisperMixin:UpdateConnectedRealms()
