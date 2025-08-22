@@ -244,8 +244,7 @@ function TradeWhisperMixin:ValidCustomer(customerName, crafterName)
 end
 
 function TradeWhisperMixin:IsCurrentCustomer(playerName)
-    playerName = GetNameAndRealm(playerName)
-    return playerName == GetNameAndRealm(self.Recipient:GetText())
+    return GetNameAndRealm(playerName) == self.currentRecipient
 end
 
 function TradeWhisperMixin:IsRecentCustomer(playerName, seconds)
@@ -300,12 +299,38 @@ function TradeWhisperMixin:IsMe(name)
     return name == self.playerName
 end
 
-function TradeWhisperMixin:GetWhisperMessage(item, crafter)
-    local repl = {
-        item = item,
-        crafter = self:IsMe(crafter) and "this character" or "my alt "..crafter,
-    }
-    return self.db.global.message:gsub('{(.-)}', repl)
+function TradeWhisperMixin:GetWhisperMessage(found)
+    -- Merge same crafter into single item
+    table.sort(found, function (a, b) return a.crafter < b.crafter end)
+    for i = #found, 2, -1 do
+        if found[i].crafter == found[i-1].crafter then
+            found[i-1].link = found[i-1].link .. found[i].link
+            table.remove(found, i)
+        end
+    end
+
+    if #found == 1 then
+        local data = found[1]
+        local repl = {
+            item = data.link,
+            crafter = self:IsMe(data.crafter) and "this character" or "my alt "..data.crafter,
+        }
+        local text = self.db.global.message:gsub('{(.-)}', repl)
+        return text
+    else
+        local texts = {}
+        for _, data in ipairs(found) do
+            local repl = {
+                item = data.link,
+                crafter = self:IsMe(data.crafter) and "this character" or "my alt "..data.crafter,
+            }
+            local text = self.db.global.messageMultiBody:gsub('{(.-)}', repl)
+            table.insert(texts, text)
+        end
+        return self.db.global.messageMultiPre
+            .. table.concat(texts, ', ')
+            .. self.db.global.messageMultiPost
+    end
 end
 
 function TradeWhisperMixin:AddChatHistory(...)
@@ -331,15 +356,22 @@ function TradeWhisperMixin:CHAT_MSG_CHANNEL(...)
     local chatMsgText, chatMsgSender = ...
     if self:IsIgnoredSender(chatMsgSender) then return end
 
+    local found = {}
+
     for text, crafter in pairs(self.db.global.tradeScan) do
         if chatMsgText:lower():find(text, nil, true) and self:ValidCustomer(chatMsgSender, crafter) then
             local link = FindMatchingLink(chatMsgText, text) or text
-            local reply = self:GetWhisperMessage(link, crafter)
-            self:AddChatHistory('CHANNEL', chatMsgText, chatMsgSender)
-            self:Open(chatMsgSender, reply)
-            PlaySound(11466)
-            return
+            -- printf("For ('%s', '%s') in '%s' found '%s'", text, crafter, chatMsgText:lower(), link)
+            table.insert(found, { text=text, link=link, crafter=crafter })
         end
+    end
+
+    if next(found) then
+        local reply = self:GetWhisperMessage(found)
+        self:AddChatHistory('CHANNEL', chatMsgText, chatMsgSender)
+        self:SetRecipient(chatMsgSender)
+        self:Open(reply)
+        PlaySound(11466)
     end
 end
 
@@ -422,11 +454,11 @@ function TradeWhisperRecipientHistoryDropdownMixin:OnButtonStateChanged()
 end
 
 local function IsSelected(playerName)
-    return playerName == TradeWhisper.Recipient:GetText()
+    return playerName == TradeWhisper.currentRecipient
 end
 
 local function SetSelected(playerName)
-    TradeWhisper.Recipient:SetText(playerName)
+    TradeWhisper:SetRecipient(playerName)
 end
 
 function TradeWhisperRecipientHistoryDropdownMixin:OnLoad()
@@ -441,6 +473,11 @@ function TradeWhisperRecipientHistoryDropdownMixin:OnLoad()
                 rootDescription:CreateRadio(playerName, IsSelected, SetSelected, playerName)
             end
         end)
+end
+
+function TradeWhisperMixin:SetRecipient(playerName)
+    TradeWhisper.currentRecipient = playerName
+    self:UpdateConversation()
 end
 
 function TradeWhisperMixin:OnLoad()
@@ -466,11 +503,15 @@ function TradeWhisperMixin:OnShow()
 end
 
 function TradeWhisperMixin:SendWhisper()
-    SendChatMessage(self.Message.EditBox:GetText(), "WHISPER", nil, self.Recipient:GetText())
+    SendChatMessage(self.Message.EditBox:GetText(), "WHISPER", nil, self.currentRecipient)
     self.Message.EditBox:SetText('')
 end
 
 function TradeWhisperMixin:UpdateConversation()
+    if not self:IsShown() then
+        return
+    end
+
     local conversationMessages = {}
     for i = #self.db.global.chatHistory, 1, -1 do
         local msgTime, _, msgType, msgText, msgPlayer = unpack(self.db.global.chatHistory[i])
@@ -492,16 +533,12 @@ function TradeWhisperMixin:UpdateConversation()
     for _, text in ipairs(conversationMessages) do
         self.Conversation:AddMessage(text)
     end
+    self.Recipient:SetText(self.currentRecipient or "")
 end
 
-function TradeWhisperMixin:Open(chatMsgSender, reply)
+function TradeWhisperMixin:Open(reply)
     self.Message.EditBox:SetText(reply or "")
-    self.Recipient:SetText(chatMsgSender or "")
-    if self:IsShown() then
-        self:UpdateConversation()
-    else
-        self:Show()
-    end
+    self:UpdateConversation()
 end
 
 function TradeWhisperMixin:UpdateConnectedRealms()
@@ -534,6 +571,9 @@ end
 local defaults = {
     global = {
         message = "I can craft {item} on {crafter}. Max spec, guaranteed 5* with 3* mats",
+        messageMultiPre = "I can craft: ",
+        messageMultiBody = "{item} on {crafter}",
+        messageMultiPost = ". Guaranteed 5* with 3* mats",
         tradeScan = {},
         tradeIgnore = {},
         chatHistory = {},

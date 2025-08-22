@@ -102,12 +102,6 @@
         <Anchors>
           <Anchor point="TOP" relativeKey="$parent.Message" relativePoint="BOTTOM" y="-8" />
         </Anchors>
-        <Scripts>
-          <OnTextChanged>
-            local parent = self:GetParent()
-            if parent:IsShown() then parent:UpdateConversation() end
-          </OnTextChanged>
-        </Scripts>
       </EditBox>
       <DropDownButton parentKey="RecipientHistoryDropdownButton" mixin="TradeWhisperRecipientHistoryDropdownMixin">
         <Size x="19" y="19" />
