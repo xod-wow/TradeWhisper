@@ -371,7 +371,7 @@ function TradeWhisperMixin:CHAT_MSG_CHANNEL(...)
         self:AddChatHistory('CHANNEL', chatMsgText, chatMsgSender)
         self:SetRecipient(chatMsgSender)
         self:SetPendingMessage(reply)
-        self:Show()
+        self:ShowOrUpdate()
         PlaySound(11466)
     end
 end
@@ -517,6 +517,14 @@ function TradeWhisperMixin:OnShow()
     self:UpdateConversation()
 end
 
+function TradeWhisperMixin:ShowOrUpdate()
+    if self:IsShown() then
+        self:UpdateConversation()
+    else
+        self:Show()
+    end
+end
+
 function TradeWhisperMixin:SendWhisper()
     SendChatMessage(self.Message.EditBox:GetText(), "WHISPER", nil, self.currentRecipient)
     self.pendingMessages[self.currentRecipient] = nil
@@ -649,7 +657,8 @@ function TradeWhisperMixin:CRAFTINGORDERS_DISPLAY_CRAFTER_FULFILLED_MSG(...)
             msg = fmt:format(orderType, itemName, playerName, money)
         end
         self:AddChatHistory('FULFILL', msg, playerName)
-        self:UpdateConversation()
+        self:SetRecipient(playerName)
+        self:ShowOrUpdate()
     end
 end
 
