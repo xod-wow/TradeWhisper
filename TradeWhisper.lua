@@ -174,7 +174,7 @@ function TradeWhisperMixin:ScanOpenTradeSkill()
             return false
         end
         local profInfo = C_TradeSkillUI.GetProfessionInfoByRecipeID(recipeID)
-        if profInfo.expansionName ~= "Khaz Algar" then
+        if profInfo.expansionName ~= "Midnight" then
             return false
         end
         local link = C_TradeSkillUI.GetRecipeItemLink(recipeID)
