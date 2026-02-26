@@ -119,53 +119,53 @@ end
 
 function TradeWhisperMixin:ScanOpenTradeSkill()
     local function GetBestReagent(reagents)
-       local bestReagent, bestQuality
-       for _, r in ipairs(reagents) do
-          local quality = C_TradeSkillUI.GetItemReagentQualityByItemInfo(r.itemID)
-          if not bestQuality or quality > bestQuality then
-             bestQuality, bestReagent = quality, r
-          end
-       end
-       return bestReagent
+        local bestReagent, bestQuality
+        for _, r in ipairs(reagents) do
+            local quality = C_TradeSkillUI.GetItemReagentQualityByItemInfo(r.itemID)
+            if not bestQuality or quality > bestQuality then
+                bestQuality, bestReagent = quality, r
+            end
+        end
+        return bestReagent
     end
 
     local allowedDataSlotTypes = {
-       -- [Enum.TradeskillSlotDataType.Reagent] = true,
-       [Enum.TradeskillSlotDataType.ModifiedReagent] = true,
+        -- [Enum.TradeskillSlotDataType.Reagent] = true,
+        [Enum.TradeskillSlotDataType.ModifiedReagent] = true,
     }
 
     local allowedReagentTypes = {
-       [Enum.CraftingReagentType.Basic] = true,
-       [Enum.CraftingReagentType.Finishing] = true,
+        [Enum.CraftingReagentType.Basic] = true,
+        [Enum.CraftingReagentType.Finishing] = true,
     }
 
     local function ShouldUseReagent(rss)
-       if not allowedDataSlotTypes[rss.dataSlotType] then
-          return false
-       elseif not allowedReagentTypes[rss.reagentType] then
-          return false
-       else
-          return true
-       end
+        if not allowedDataSlotTypes[rss.dataSlotType] then
+            return false
+        elseif not allowedReagentTypes[rss.reagentType] then
+            return false
+        else
+            return true
+        end
     end
 
     local function CreateBestReagentsTable(recipeID)
-       local out = {}
-       local schematic = C_TradeSkillUI.GetRecipeSchematic(recipeID, false)
-       for i, rss in ipairs(schematic.reagentSlotSchematics) do
-          if ShouldUseReagent(rss) then
-             local reagent = GetBestReagent(rss.reagents)
-             local info = Professions.CreateCraftingReagentInfo(reagent, rss.dataSlotIndex, rss.quantityRequired)
-             table.insert(out, info)
-          end
-       end
-       return out
+        local out = {}
+        local schematic = C_TradeSkillUI.GetRecipeSchematic(recipeID, false)
+        for i, rss in ipairs(schematic.reagentSlotSchematics) do
+            if ShouldUseReagent(rss) then
+                local reagent = GetBestReagent(rss.reagents)
+                local info = Professions.CreateCraftingReagentInfo(reagent, rss.dataSlotIndex, rss.quantityRequired)
+                table.insert(out, info)
+            end
+        end
+        return out
     end
 
     local allowItemClass = {
-       [Enum.ItemClass.Armor] = true,
-       [Enum.ItemClass.Weapon] = true,
-       [Enum.ItemClass.Profession] = true,
+        [Enum.ItemClass.Armor] = true,
+        [Enum.ItemClass.Weapon] = true,
+        [Enum.ItemClass.Profession] = true,
     }
 
     local function ShouldScanRecipe(recipeID)
