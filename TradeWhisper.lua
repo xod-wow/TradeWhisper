@@ -118,15 +118,15 @@ function TradeWhisperMixin:SendDatabase(recipient)
 end
 
 function TradeWhisperMixin:ScanOpenTradeSkill()
-    local function GetBestItemID(reagents)
-       local bestItemID, bestQuality
+    local function GetBestReagent(reagents)
+       local bestReagent, bestQuality
        for _, r in ipairs(reagents) do
           local quality = C_TradeSkillUI.GetItemReagentQualityByItemInfo(r.itemID)
           if not bestQuality or quality > bestQuality then
-             bestQuality, bestItemID = quality, r.itemID
+             bestQuality, bestReagent = quality, r
           end
        end
-       return bestItemID
+       return bestReagent
     end
 
     local allowedDataSlotTypes = {
@@ -154,8 +154,8 @@ function TradeWhisperMixin:ScanOpenTradeSkill()
        local schematic = C_TradeSkillUI.GetRecipeSchematic(recipeID, false)
        for i, rss in ipairs(schematic.reagentSlotSchematics) do
           if ShouldUseReagent(rss) then
-             local itemID = GetBestItemID(rss.reagents)
-             local info = Professions.CreateCraftingReagentInfo(itemID, rss.dataSlotIndex, rss.quantityRequired)
+             local reagent = GetBestReagent(rss.reagents)
+             local info = Professions.CreateCraftingReagentInfo(reagent, rss.dataSlotIndex, rss.quantityRequired)
              table.insert(out, info)
           end
        end
@@ -174,11 +174,11 @@ function TradeWhisperMixin:ScanOpenTradeSkill()
             return false
         end
         local profInfo = C_TradeSkillUI.GetProfessionInfoByRecipeID(recipeID)
-        local link = C_TradeSkillUI.GetRecipeItemLink(recipeID)
-        local classID, subClassID = select(6, C_Item.GetItemInfoInstant(link))
         if profInfo.expansionName ~= "Khaz Algar" then
             return false
         end
+        local link = C_TradeSkillUI.GetRecipeItemLink(recipeID)
+        local classID, subClassID = select(6, C_Item.GetItemInfoInstant(link))
         if not allowItemClass[classID] then
             return false
         end
