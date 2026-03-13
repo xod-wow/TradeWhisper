@@ -162,6 +162,16 @@ function TradeWhisperMixin:ScanOpenTradeSkill()
         return out
     end
 
+    local function RequiresSpark(recipeID)
+        local schematic = C_TradeSkillUI.GetRecipeSchematic(recipeID, false)
+        for _, reagent in ipairs(schematic.reagentSlotSchematics) do
+            if reagent.slotInfo and reagent.slotInfo.mcrSlotID == 401 then
+                return true
+            end
+        end
+        return false
+    end
+
     local allowItemClass = {
         [Enum.ItemClass.Armor] = true,
         [Enum.ItemClass.Weapon] = true,
@@ -175,6 +185,9 @@ function TradeWhisperMixin:ScanOpenTradeSkill()
         end
         local profInfo = C_TradeSkillUI.GetProfessionInfoByRecipeID(recipeID)
         if profInfo.expansionName ~= "Midnight" then
+            return false
+        end
+        if not RequiresSpark(recipeID) then
             return false
         end
         local link = C_TradeSkillUI.GetRecipeItemLink(recipeID)
@@ -675,11 +688,7 @@ function TradeWhisperMixin:CRAFTINGORDERS_UPDATE_PERSONAL_ORDER_COUNTS()
 end
 
 function TradeWhisperMixin:ExportDB()
-    local data = {
-        global = self.db.sv.global,
-        profiles = self.db.sv.profiles,
-        char = self.db.sv.char,
-    }
+    local data = self.db.global.tradeScan
     return C_EncodingUtil.EncodeBase64( C_EncodingUtil.CompressString( C_EncodingUtil.SerializeCBOR( data )))
 end
 
@@ -687,7 +696,7 @@ function TradeWhisperMixin:DecodeDB(encoded)
     local compressed = C_EncodingUtil.DecodeBase64(encoded)
     if not compressed then return end
 
-    local serialized = C_EncodingUtil.DecompressString(compresssed)
+    local serialized = C_EncodingUtil.DecompressString(compressed)
     if not serialized then return end
 
     return C_EncodingUtil.DeserializeCBOR(serialized)
@@ -716,10 +725,8 @@ end
 
 function TradeWhisperMixin:ImportDB(encoded)
     local data = self:DecodeDB(encoded)
-    if not data then return end
-
-    Mixin(self.db.sv.global.tradeScan, data.global.tradeScan)
-    Mixin(self.db.sv.global.tradeIgnore, data.global.tradeIgnore)
-    Mixin(self.db.sv.global.connectedRealms, data.global.connectedRealms)
-    self:MergeChatHistory(data.global.chatHistory)
+    DevTools_Dump({ data })
+    if data then
+        Mixin(self.db.sv.global.tradeScan, data)
+    end
 end

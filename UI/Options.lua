@@ -178,7 +178,7 @@ local function GenerateOptions()
             order = 10*i+1,
             name = tostring(i),
             type = "description",
-            width = 0.2,
+            width = 0.25,
         }
         scanList["scanCrafter"..i] = {
             order = 10*i+2,
