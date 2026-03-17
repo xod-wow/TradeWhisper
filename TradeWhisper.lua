@@ -121,9 +121,14 @@ function TradeWhisperMixin:ScanOpenTradeSkill()
     local function GetBestReagent(reagents)
         local bestReagent, bestQuality
         for _, r in ipairs(reagents) do
-            local quality = C_TradeSkillUI.GetItemReagentQualityByItemInfo(r.itemID)
-            if not bestQuality or quality > bestQuality then
-                bestQuality, bestReagent = quality, r
+            if r.itemID then
+                local quality = C_TradeSkillUI.GetItemReagentQualityByItemInfo(r.itemID) or 0
+                if not bestQuality or quality > bestQuality then
+                    bestQuality, bestReagent = quality, r
+                end
+            elseif r.currencyID then
+                -- assume these are in order and last is best
+                bestReagent = r
             end
         end
         return bestReagent
@@ -135,8 +140,9 @@ function TradeWhisperMixin:ScanOpenTradeSkill()
     }
 
     local allowedReagentTypes = {
+        [Enum.CraftingReagentType.Modifying] = true,
         [Enum.CraftingReagentType.Basic] = true,
-        [Enum.CraftingReagentType.Finishing] = true,
+        -- [Enum.CraftingReagentType.Finishing] = true,
     }
 
     local function ShouldUseReagent(rss)
@@ -165,7 +171,7 @@ function TradeWhisperMixin:ScanOpenTradeSkill()
     local function RequiresSpark(recipeID)
         local schematic = C_TradeSkillUI.GetRecipeSchematic(recipeID, false)
         for _, reagent in ipairs(schematic.reagentSlotSchematics) do
-            if reagent.slotInfo and reagent.slotInfo.mcrSlotID == 401 then
+            if reagent.slotInfo and reagent.slotInfo.slotText == 'Spark' then
                 return true
             end
         end
@@ -177,6 +183,34 @@ function TradeWhisperMixin:ScanOpenTradeSkill()
         [Enum.ItemClass.Weapon] = true,
         [Enum.ItemClass.Profession] = true,
     }
+
+    -- It's not clear how I should handle what I can craft at the non-maxxed
+    -- point with concentration and boost items. Especially when I'm leveling
+    -- and want to use the conc for +3 skill as a high priority. In TWW I
+    -- don't think people are tipping highly because crafts are mostly low-cost
+    -- in mats. I could put in a lot of UI for this but it's a temporary problem
+    -- and probably not worth it.
+
+    local function ScanRecipe(recipeID)
+        local reagents = CreateBestReagentsTable(recipeID)
+        local opInfo = C_TradeSkillUI.GetCraftingOperationInfo(recipeID, reagents, nil, false)
+        local output = C_TradeSkillUI.GetRecipeOutputItemData(recipeID, reagents)
+        local difficulty = opInfo.baseDifficulty + opInfo.bonusDifficulty
+        if opInfo then
+            if difficulty == opInfo.lowerSkillThreshold then
+                printf('Adding %s (%d)', output.hyperlink, recipeID)
+                return C_TradeSkillUI.GetRecipeItemLink(recipeID)
+            elseif opInfo.craftingQuality == 4 and opInfo.concentrationCost <= 1000 then
+                printf('Adding %s (%d) con %d', output.hyperlink, recipeID, opInfo.concentrationCost)
+            else
+                local skill = opInfo.baseSkill + opInfo.bonusSkill
+                local missing = difficulty - skill
+                printf('Not adding %s (%d) missing skill %d', output.hyperlink, recipeID, missing)
+            end
+        else
+            printf('Error no opinfo')
+        end
+    end
 
     local function ShouldScanRecipe(recipeID)
         local recipeInfo = C_TradeSkillUI.GetRecipeInfo(recipeID)
@@ -196,14 +230,6 @@ function TradeWhisperMixin:ScanOpenTradeSkill()
             return false
         end
         return true
-    end
-
-    local function ScanRecipe(recipeID)
-        local reagents = CreateBestReagentsTable(recipeID)
-        local opInfo = C_TradeSkillUI.GetCraftingOperationInfo(recipeID, reagents, nil, false)
-        if opInfo and opInfo.baseDifficulty == opInfo.lowerSkillThreshold then
-            return C_TradeSkillUI.GetRecipeItemLink(recipeID)
-        end
     end
 
     local allRecipes = C_TradeSkillUI.GetAllRecipeIDs()
@@ -725,7 +751,6 @@ end
 
 function TradeWhisperMixin:ImportDB(encoded)
     local data = self:DecodeDB(encoded)
-    DevTools_Dump({ data })
     if data then
         Mixin(self.db.sv.global.tradeScan, data)
     end
