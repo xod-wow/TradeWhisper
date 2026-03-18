@@ -202,6 +202,7 @@ function TradeWhisperMixin:ScanOpenTradeSkill()
                 return C_TradeSkillUI.GetRecipeItemLink(recipeID)
             elseif opInfo.craftingQuality == 4 and opInfo.concentrationCost <= 1000 then
                 printf('Adding %s (%d) con %d', output.hyperlink, recipeID, opInfo.concentrationCost)
+                return C_TradeSkillUI.GetRecipeItemLink(recipeID)
             else
                 local skill = opInfo.baseSkill + opInfo.bonusSkill
                 local missing = difficulty - skill
