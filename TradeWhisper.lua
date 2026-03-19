@@ -145,6 +145,8 @@ function TradeWhisperMixin:ScanOpenTradeSkill()
         -- [Enum.CraftingReagentType.Finishing] = true,
     }
 
+    local sparkSlotNames = { "Spark", "Competitor's Heraldry", }
+
     local function ShouldUseReagent(rss)
         if not allowedDataSlotTypes[rss.dataSlotType] then
             return false
@@ -171,7 +173,7 @@ function TradeWhisperMixin:ScanOpenTradeSkill()
     local function RequiresSpark(recipeID)
         local schematic = C_TradeSkillUI.GetRecipeSchematic(recipeID, false)
         for _, reagent in ipairs(schematic.reagentSlotSchematics) do
-            if reagent.slotInfo and reagent.slotInfo.slotText == 'Spark' then
+            if reagent.slotInfo and tContains(sparkSlotNames, reagent.slotInfo.slotText) then
                 return true
             end
         end
