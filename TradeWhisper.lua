@@ -198,16 +198,16 @@ function TradeWhisperMixin:ScanOpenTradeSkill()
         local opInfo = C_TradeSkillUI.GetCraftingOperationInfo(recipeID, reagents, nil, false)
         local output = C_TradeSkillUI.GetRecipeOutputItemData(recipeID, reagents)
         local difficulty = opInfo.baseDifficulty + opInfo.bonusDifficulty
+        local skill = opInfo.baseSkill + opInfo.bonusSkill
+        local missing = difficulty - skill
         if opInfo then
             if difficulty == opInfo.lowerSkillThreshold then
                 printf('Adding %s (%d)', output.hyperlink, recipeID)
                 return C_TradeSkillUI.GetRecipeItemLink(recipeID)
-            elseif opInfo.craftingQuality == 4 and opInfo.concentrationCost <= 1000 then
-                printf('Adding %s (%d) con %d', output.hyperlink, recipeID, opInfo.concentrationCost)
+            elseif opInfo.craftingQuality == 4 and missing <= 20 then
+                printf('Adding %s (%d) missing skill %d', output.hyperlink, recipeID, missing)
                 return C_TradeSkillUI.GetRecipeItemLink(recipeID)
             else
-                local skill = opInfo.baseSkill + opInfo.bonusSkill
-                local missing = difficulty - skill
                 printf('Not adding %s (%d) missing skill %d', output.hyperlink, recipeID, missing)
             end
         else
@@ -414,7 +414,7 @@ function TradeWhisperMixin:CHAT_MSG_CHANNEL(...)
         self:SetRecipient(chatMsgSender)
         self:SetPendingMessage(reply)
         self:ShowOrUpdate()
-        PlaySound(11466)
+        PlaySoundFile(1313273)
     end
 end
 
