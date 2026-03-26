@@ -73,6 +73,9 @@ function TradeWhisperMixin:SlashCommand(arg)
     elseif arg1 == 'auth' and arg2 then
         self.db.global.authorizedDBSenders[arg2] = true
         return true
+    elseif arg1 == 'send' then
+        self:SendDatabase()
+        return true
     end
 
     -- Three arg
@@ -100,7 +103,9 @@ function TradeWhisperMixin:SetupSlashCommand()
 end
 
 function TradeWhisperMixin:ReceiveComms(prefix, message, distribution, sender)
-    if self.authorizedDBSenders[sender] then
+    if self:IsMe(sender) then
+        printf("Ignoring DB transmit from me " .. sender)
+    elseif distribution == "GUILD" or self.db.global.authorizedDBSenders[sender] then
         printf("Importing DB transmit from " .. sender)
         self:ImportDB(message)
     else
@@ -114,7 +119,11 @@ function TradeWhisperMixin:SendDatabase(recipient)
         binaryBlob = true
     }
     local message = self:ExportDB()
-    Chomp.SmartAddonMessage(addOnName, message, "WHISPER", recipient, messageOptions)
+    if recipient then
+        Chomp.SmartAddonMessage(addOnName, message, "WHISPER", recipient, messageOptions)
+    else
+        Chomp.SmartAddonMessage(addOnName, message, "GUILD", nil, messageOptions)
+    end
 end
 
 function TradeWhisperMixin:ScanOpenTradeSkill()
@@ -414,7 +423,7 @@ function TradeWhisperMixin:CHAT_MSG_CHANNEL(...)
         self:SetRecipient(chatMsgSender)
         self:SetPendingMessage(reply)
         self:ShowOrUpdate()
-        PlaySoundFile(1313273)
+        PlaySoundFile(1313273, "Master")
     end
 end
 
@@ -708,7 +717,7 @@ function TradeWhisperMixin:UpdatePersonalOrders()
     local prevCount = self.personalOrderCount or 0
     self.personalOrderCount = #C_CraftingOrders.GetPersonalOrdersInfo()
     if self.personalOrderCount > prevCount then
-        PlaySoundFile(1313269)
+        PlaySoundFile(1313269, "Master")
     end
 end
 
@@ -755,6 +764,11 @@ end
 function TradeWhisperMixin:ImportDB(encoded)
     local data = self:DecodeDB(encoded)
     if data then
-        Mixin(self.db.sv.global.tradeScan, data)
+        for k, v in pairs(data) do
+            -- Prefer local data
+            if not self.db.sv.global.tradeScan[k] then
+                self.db.sv.global.tradeScan[k] = v
+            end
+        end
     end
 end
