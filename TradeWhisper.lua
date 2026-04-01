@@ -210,12 +210,12 @@ function TradeWhisperMixin:ScanOpenTradeSkill()
         local skill = opInfo.baseSkill + opInfo.bonusSkill
         local missing = difficulty - skill
         if opInfo then
-            if difficulty == opInfo.lowerSkillThreshold then
+            if opInfo.craftingQuality == 5 and difficulty == opInfo.lowerSkillThreshold then
                 printf('Adding %s (%d)', output.hyperlink, recipeID)
-                return C_TradeSkillUI.GetRecipeItemLink(recipeID)
-            elseif opInfo.craftingQuality == 4 and missing <= 20 then
+                return output.hyperlink
+            elseif opInfo.craftingQuality == 4 and missing <= 10 then
                 printf('Adding %s (%d) missing skill %d', output.hyperlink, recipeID, missing)
-                return C_TradeSkillUI.GetRecipeItemLink(recipeID)
+                return output.hyperlink
             else
                 printf('Not adding %s (%d) missing skill %d', output.hyperlink, recipeID, missing)
             end
