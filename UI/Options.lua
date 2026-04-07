@@ -173,7 +173,7 @@ local function GenerateOptions()
     table.sort(scanKeys)
 
     for i, text in ipairs(scanKeys) do
-        local crafter = TradeWhisper.db.global.tradeScan[text]
+        local info = TradeWhisper.db.global.tradeScan[text]
         scanList["index"..i] = {
             order = 10*i+1,
             name = tostring(i),
@@ -182,14 +182,15 @@ local function GenerateOptions()
         }
         scanList["scanCrafter"..i] = {
             order = 10*i+2,
-            name = crafter,
+            name = info.crafter,
             type = "description",
             width = 1.1,
         }
         scanList["scanText"..i] = {
             order = 10*i+3,
-            name = text,
+            name = info.link or text,
             type = "description",
+            tooltipHyperlink = info.link,
             width = 1.7,
         }
         scanList["delete"..i] = {

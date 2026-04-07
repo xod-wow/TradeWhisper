@@ -81,10 +81,7 @@ function TradeWhisperMixin:SlashCommand(arg)
     -- Three arg
     arg1, arg2, arg3 = string.split(' ', arg, 3)
 
-    if arg1 == 'add' and arg2 and arg3 then
-        self:ScanAdd(arg2, arg3)
-        return true
-    elseif arg1 == 'ignore' and arg2 == 'add' then
+    if arg1 == 'ignore' and arg2 == 'add' then
         self:IgnoreAdd(arg3)
         return true
     elseif arg1 == 'ignore' and arg2 == 'del' then
@@ -253,25 +250,26 @@ function TradeWhisperMixin:ScanOpenTradeSkill()
                 local item = Item:CreateFromItemLink(link)
                 item:ContinueOnItemLoad(
                     function ()
-                        self:ScanAdd(self.playerName, item:GetItemName())
+                        self:ScanAdd(self.playerName, item)
                     end)
             end
         end
     end
 end
 
-local function FindMatchingLink(chatMsgText, text)
+-- Links might be in other languages so replace them if possible
+local function LocalizeMessageLinks(chatMsgText)
+    local out = chatMsgText
     for link in chatMsgText:gmatch([[|c.-|H.-|h.-|h|r]]) do
-        if link:lower():find(text, nil, true) then
-            return link
-        end
         local item = Item:CreateFromItemLink(link)
         if item and not item:IsItemEmpty() and item:IsItemDataCached() then
-            if item:GetItemName():lower():find(text, nil, true) then
-                return link
-            end
+            -- Force link lookup instead of returning the link we gave it
+            item:SetItemID(item:GetItemID())
+            local s, e = out:find(link, nil, true)
+            out = out:sub(1, s-1) .. item:GetItemLink() .. out:sub(e+1)
         end
     end
+    return out
 end
 
 local function GetNameAndRealm(playerName)
@@ -407,13 +405,13 @@ function TradeWhisperMixin:CHAT_MSG_CHANNEL(...)
     local chatMsgText, chatMsgSender = ...
     if self:IsIgnoredSender(chatMsgSender) then return end
 
+    chatMsgText = LocalizeMessageLinks(chatMsgText)
+
     local found = {}
 
-    for text, crafter in pairs(self.db.global.tradeScan) do
-        if chatMsgText:lower():find(text, nil, true) and self:ValidCustomer(chatMsgSender, crafter) then
-            local link = FindMatchingLink(chatMsgText, text) or text
-            -- printf("For ('%s', '%s') in '%s' found '%s'", text, crafter, chatMsgText:lower(), link)
-            table.insert(found, { text=text, link=link, crafter=crafter })
+    for text, info in pairs(self.db.global.tradeScan) do
+        if chatMsgText:lower():find(text, nil, true) and self:ValidCustomer(chatMsgSender, info.crafter) then
+            table.insert(found, { text=text, link=info.link, crafter=info.crafter })
         end
     end
 
@@ -433,7 +431,8 @@ function TradeWhisperMixin:ScanList()
         local texts = GetKeysArray(self.db.global.tradeScan)
         table.sort(texts)
         for i, text in ipairs(texts) do
-            printf("%d. %s : %s", i, self.db.global.tradeScan[text], text)
+            local info = self.db.global.tradeScan[text]
+            printf("%d. %s : %s", i, info.crafter, info.link)
         end
     else
         printf("   None.")
@@ -445,11 +444,7 @@ function TradeWhisperMixin:ScanClear()
     self:UpdateScanning()
 end
 
-function TradeWhisperMixin:ScanAdd(playerName, text)
-    if not text or text == '' then
-        return
-    end
-
+function TradeWhisperMixin:ScanAdd(playerName, item)
     if not playerName:sub(1,1):match('[A-Z]') then
         printf("Error: %s : player name must start with a capital letter.", playerName)
         return
@@ -460,17 +455,8 @@ function TradeWhisperMixin:ScanAdd(playerName, text)
 
     playerName = GetNameAndRealm(playerName)
 
-    if text:find('|H.-|h') then
-        -- Remove the quality texture part
-        text = text:gsub(' ?|A.-|a', '')
-        for itemText in text:gmatch('|H.-|h%[(.-)%]') do
-            itemText = itemText:lower()
-            self.db.global.tradeScan[itemText] = playerName
-        end
-    else
-        text = text:lower()
-        self.db.global.tradeScan[text] = playerName
-    end
+    local text = item:GetItemName():lower()
+    self.db.global.tradeScan[text] = { crafter=playerName, link=item:GetItemLink() }
     self:UpdateScanning()
 end
 
@@ -655,11 +641,6 @@ local defaults = {
 
 function TradeWhisperMixin:PLAYER_LOGIN()
     printf('Initialized.')
-
-    if TradeWhisperDB and TradeWhisperDB.tradeScan then
-        TradeWhisperDB.global = TradeWhisperDB.global or {}
-        TradeWhisperDB.global.tradeScan = TradeWhisperDB.tradeScan
-    end
 
     self.db = LibStub("AceDB-3.0"):New("TradeWhisperDB", defaults, true)
 
