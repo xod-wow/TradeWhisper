@@ -739,16 +739,42 @@ function TradeWhisperMixin:MergeChatHistory(newChatHistory)
     tAppendAll(self.db.sv.global.chatHistory, mergedHistory)
 end
 
--- We can't reload an AceDB in any way so we have to replace any table keys for
--- tables that already exist and hope for the best.
+-- It's probably better just to keep a record of what crafters are
+-- local than go to all this trouble.
+local function UpdateLinkIfBetter(oldInfo, newInfo)
+    if not newInfo.link then
+        return
+    end
+
+    if not oldInfo.link then
+        oldInfo.link = newInfo.link
+        return
+    end
+
+    local oldItem = Item:CreateFromItemLink(oldInfo.link)
+    local newItem = Item:CreateFromItemLink(newInfo.link)
+    local cc = ContinuableContainer:Create()
+    cc:AddContinuable(oldItem)
+    cc:AddContinuable(newItem)
+    cc:ContinueOnLoad(
+        function ()
+            local oldLevel = C_Item.GetDetailedItemLevelInfo(oldInfo.link)
+            local newLevel = C_Item.GetDetailedItemLevelInfo(newInfo.link)
+            if newLevel > oldLevel then
+                oldInfo.link = newInfo.link
+            end
+        end)
+end
 
 function TradeWhisperMixin:ImportDB(encoded)
     local data = self:DecodeDB(encoded)
     if data then
-        for k, v in pairs(data) do
-            -- Prefer local data
-            if not self.db.sv.global.tradeScan[k] then
-                self.db.sv.global.tradeScan[k] = v
+        for k, newInfo in pairs(data) do
+            local oldInfo = self.db.sv.global.tradeScan[k]
+            if not oldInfo then
+                self.db.sv.global.tradeScan[k] = newInfo
+            elseif oldInfo.crafter == newInfo.crafter then
+                UpdateLinkIfBetter(oldInfo, newInfo)
             end
         end
     end
