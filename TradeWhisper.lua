@@ -127,13 +127,13 @@ function TradeWhisperMixin:ScanOpenTradeSkill()
     local function GetBestReagent(reagents)
         local bestReagent, bestQuality
         for _, r in ipairs(reagents) do
+            -- assume for equality these are in order and last is best
             if r.itemID then
                 local quality = C_TradeSkillUI.GetItemReagentQualityByItemInfo(r.itemID) or 0
-                if not bestQuality or quality > bestQuality then
+                if not bestQuality or quality >= bestQuality then
                     bestQuality, bestReagent = quality, r
                 end
             elseif r.currencyID then
-                -- assume these are in order and last is best
                 bestReagent = r
             end
         end
