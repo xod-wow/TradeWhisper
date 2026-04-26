@@ -176,10 +176,14 @@ function TradeWhisperMixin:ScanOpenTradeSkill()
         return out
     end
 
+    -- I think it's probably better to check for BoP result
     local function RequiresSpark(recipeID)
         local schematic = C_TradeSkillUI.GetRecipeSchematic(recipeID, false)
         for _, reagent in ipairs(schematic.reagentSlotSchematics) do
             if reagent.slotInfo and tContains(sparkSlotNames, reagent.slotInfo.slotText) then
+                    return true
+            elseif reagent.reagents[1].itemID == 245345 then
+                -- Fused Vitality
                 return true
             end
         end
