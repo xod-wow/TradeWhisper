@@ -6,5 +6,6 @@
   <Include file="Libs\AceConfig-3.0\AceConfig-3.0.xml" />
   <Include file="Libs\AceConsole-3.0\AceConsole-3.0.xml" />
   <Include file="Libs\AceDBOptions-3.0\AceDBOptions-3.0.xml" />
+  <Include file="Libs\ChatThrottleLib\ChatThrottleLib.xml" />
   <Include file="Libs\Chomp\Chomp.xml" />
 </Ui>
