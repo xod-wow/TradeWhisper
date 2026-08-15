@@ -661,19 +661,23 @@ function TradeWhisperMixin:PLAYER_LOGIN()
 end
 
 function TradeWhisperMixin:CHAT_MSG_WHISPER(text, remoteName)
-    remoteName = GetNameAndRealm(remoteName)
-    if self:IsRecentCustomer(remoteName, 600) then
-        self:AddChatHistory('WHISPER', text, remoteName)
-        self:UpdateConversation()
+    if not C_ChatInfo.InChatMessagingLockdown() then
+        remoteName = GetNameAndRealm(remoteName)
+        if self:IsRecentCustomer(remoteName, 600) then
+            self:AddChatHistory('WHISPER', text, remoteName)
+            self:UpdateConversation()
+        end
     end
 end
 
 function TradeWhisperMixin:CHAT_MSG_WHISPER_INFORM(text, remoteName)
-    remoteName = GetNameAndRealm(remoteName)
-    local secondsSinceLogin = time() - self.loginTime
-    if self:IsRecentCustomer(remoteName, math.max(secondsSinceLogin, 600)) then
-        self:AddChatHistory('WHISPER_INFORM', text, remoteName)
-        self:UpdateConversation()
+    if not C_ChatInfo.InChatMessagingLockdown() then
+        remoteName = GetNameAndRealm(remoteName)
+        local secondsSinceLogin = time() - self.loginTime
+        if self:IsRecentCustomer(remoteName, math.max(secondsSinceLogin, 600)) then
+            self:AddChatHistory('WHISPER_INFORM', text, remoteName)
+            self:UpdateConversation()
+        end
     end
 end
 
