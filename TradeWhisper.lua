@@ -581,7 +581,7 @@ function TradeWhisperMixin:UpdateConversation()
     for i = #self.db.global.chatHistory, 1, -1 do
         local msgTime, _, msgType, msgText, msgPlayer = unpack(self.db.global.chatHistory[i])
         if self:IsCurrentCustomer(msgPlayer) then
-            local timeStamp = BetterDate("%Y-%m-%d %H:%M:%S", msgTime)
+            local timeStamp = TimeUtil.BetterDate("%Y-%m-%d %H:%M:%S", msgTime)
             local text
             if msgType == 'WHISPER_INFORM' then
                 text = string.format("%s To [%s] %s", timeStamp, msgPlayer, msgText)
