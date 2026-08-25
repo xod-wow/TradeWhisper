@@ -386,19 +386,15 @@ function TradeWhisperMixin:GetWhisperMessage(found)
     end
 end
 
-function TradeWhisperMixin:AddChatHistory(...)
+function TradeWhisperMixin:AddChatHistory(event, msg, sender, guid)
     -- Timestamps are only 1s granularity, so add an order received so that we
     -- can sort them later and preserve the order correctly.
-
-    local data
-
     local n = #self.db.global.chatHistory + 1
-    if select('#', ...) == 3 then
-        data = { time(), n, ... }
-    else
-        local msgTime = ...
-        data = { msgTime, n, select(3, ...) }
+    local class
+    if guid then
+        class = select(2, GetPlayerInfoByGUID(guid))
     end
+    local data = { time(), n, event, msg, sender, class }
     table.insert(self.db.global.chatHistory, data)
 end
 
@@ -420,8 +416,9 @@ function TradeWhisperMixin:CHAT_MSG_CHANNEL(...)
     end
 
     if next(found) then
+        local chatMsgSenderGUID = select(12, ...)
         local reply = self:GetWhisperMessage(found)
-        self:AddChatHistory('CHANNEL', chatMsgText, chatMsgSender)
+        self:AddChatHistory('CHANNEL', chatMsgText, chatMsgSender, chatMsgSenderGUID)
         self:SetRecipient(chatMsgSender)
         self:SetPendingMessage(reply)
         self:ShowOrUpdate()
@@ -579,8 +576,14 @@ function TradeWhisperMixin:UpdateConversation()
 
     local conversationMessages = {}
     for i = #self.db.global.chatHistory, 1, -1 do
-        local msgTime, _, msgType, msgText, msgPlayer = unpack(self.db.global.chatHistory[i])
+        local msgTime, _, msgType, msgText, msgPlayer, msgClass = unpack(self.db.global.chatHistory[i])
         if self:IsCurrentCustomer(msgPlayer) then
+            if msgClass then
+                local c = C_ClassColor.GetClassColor(msgClass)
+                if c then
+                    msgPlayer = C_ColorUtil.WrapTextInColor(msgPlayer, c)
+                end
+            end
             local timeStamp = TimeUtil.BetterDate("%Y-%m-%d %H:%M:%S", msgTime)
             local text
             if msgType == 'WHISPER_INFORM' then
@@ -660,22 +663,26 @@ function TradeWhisperMixin:PLAYER_LOGIN()
     self:UpdateScanning()
 end
 
-function TradeWhisperMixin:CHAT_MSG_WHISPER(text, remoteName)
+function TradeWhisperMixin:CHAT_MSG_WHISPER(...)
     if not C_ChatInfo.InChatMessagingLockdown() then
+        local text, remoteName = ...
+        local senderGUID = select(12, ...)
         remoteName = GetNameAndRealm(remoteName)
         if self:IsRecentCustomer(remoteName, 600) then
-            self:AddChatHistory('WHISPER', text, remoteName)
+            self:AddChatHistory('WHISPER', text, remoteName, senderGUID)
             self:UpdateConversation()
         end
     end
 end
 
-function TradeWhisperMixin:CHAT_MSG_WHISPER_INFORM(text, remoteName)
+function TradeWhisperMixin:CHAT_MSG_WHISPER_INFORM(...)
     if not C_ChatInfo.InChatMessagingLockdown() then
+        local text, remoteName = ...
+        local senderGUID = select(12, ...)
         remoteName = GetNameAndRealm(remoteName)
         local secondsSinceLogin = time() - self.loginTime
         if self:IsRecentCustomer(remoteName, math.max(secondsSinceLogin, 600)) then
-            self:AddChatHistory('WHISPER_INFORM', text, remoteName)
+            self:AddChatHistory('WHISPER_INFORM', text, remoteName, senderGUID)
             self:UpdateConversation()
         end
     end
