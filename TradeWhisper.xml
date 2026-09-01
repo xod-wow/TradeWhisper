@@ -63,6 +63,8 @@
     </Layers>
   </Frame>
 
+  <GameTooltip name="TradeWhisperTooltip" parent="UIParent" inherits="GameTooltipTemplate" />
+
   <Frame name="TradeWhisper" inherits="DefaultPanelFlatTemplate" mixin="TradeWhisperMixin" parent="UIParent" topLevel="true" movable="true" dontSavePosition="true" registerForDrag="LeftButton" hidden="true">
     <Size x="600" y="364" />
     <Anchors>
@@ -84,6 +86,19 @@
           <Anchor point="TOPLEFT" relativeKey="$parent.TitleContainer" relativePoint="BOTTOMLEFT" y="-12" />
           <Anchor point="TOPRIGHT" relativeKey="$parent.TitleContainer" relativePoint="BOTTOMRIGHT" y="-12" />
         </Anchors>
+        <Scripts>
+          <OnLoad inherit="append">
+            self:SetHyperlinksEnabled(true)
+          </OnLoad>
+          <OnHyperlinkEnter>
+            TradeWhisperTooltip:SetOwner(self, "ANCHOR_CURSOR")
+            TradeWhisperTooltip:SetHyperlink(link)
+            TradeWhisperTooltip:Show()
+          </OnHyperlinkEnter>
+          <OnHyperlinkLeave>
+            TradeWhisperTooltip:Hide()
+          </OnHyperlinkLeave>
+        </Scripts>
       </ScrollingMessageFrame>
       <ScrollFrame parentKey="Message" inherits="InputScrollFrameTemplate">
         <KeyValues>
