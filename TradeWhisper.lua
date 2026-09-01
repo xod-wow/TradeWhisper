@@ -545,6 +545,7 @@ function TradeWhisperMixin:OnLoad()
     self:RegisterEvent("CHAT_MSG_WHISPER_INFORM")
     self:RegisterEvent("CRAFTINGORDERS_DISPLAY_CRAFTER_FULFILLED_MSG")
     self:RegisterEvent("CRAFTINGORDERS_UPDATE_PERSONAL_ORDER_COUNTS")
+    self:RegisterEvent("TRADE_SKILL_ITEM_CRAFTED_RESULT")
     C_ChatInfo.RegisterAddonMessagePrefix(addOnName)
     self:SetTitle(addOnName)
     self.pendingMessages = {}
@@ -654,6 +655,7 @@ function TradeWhisperMixin:PLAYER_LOGIN()
     self.playerName = string.format('%s-%s', UnitFullName('player'))
     self.validRealms = GetAutoCompleteRealms()
     self.loginTime = time()
+    self.craftedNameToLink = {}
 
     Chomp.RegisterAddonPrefix(addOnName, function (...) self:ReceiveComms(...) end)
 
@@ -688,10 +690,27 @@ function TradeWhisperMixin:CHAT_MSG_WHISPER_INFORM(...)
     end
 end
 
+-- The fulfilled message doesn't give the link, so save the link against
+-- its name to use in the log. It's likely this could just save the link
+-- for the most recently crafted thing and use it, as it's unlikely you
+-- would leave the crafting order to craft something else in between making
+-- the item and completing the order.
+function TradeWhisperMixin:TRADE_SKILL_ITEM_CRAFTED_RESULT(resultData)
+    if resultData.hyperlink then
+        local item = Item:CreateFromItemLink(resultData.hyperlink)
+        item:ContinueOnItemLoad(
+            function ()
+                local name = item:GetItemName()
+                self.craftedNameToLink[name] = resultData.hyperlink
+            end)
+    end
+end
+
 -- Log all of these all the time, because I'm mostly doing them on another
 -- toon and without the whisper window open.
 function TradeWhisperMixin:CRAFTINGORDERS_DISPLAY_CRAFTER_FULFILLED_MSG(...)
     local orderType, itemName, playerName, tipAmount, quantityCrafted = ...
+    itemName = self.craftedNameToLink[itemName] or itemName
     if orderType == PROF_CRAFTING_ORDER_TYPE_PERSONAL then
         playerName = GetNameAndRealm(playerName)
         local money = GetMoneyString(tipAmount, true)
