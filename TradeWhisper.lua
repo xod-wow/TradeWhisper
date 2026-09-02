@@ -694,15 +694,12 @@ end
 -- its name to use in the log. It's likely this could just save the link
 -- for the most recently crafted thing and use it, as it's unlikely you
 -- would leave the crafting order to craft something else in between making
--- the item and completing the order.
+-- the item and completing the order. The fulfilled message includes the
+-- quality icon, so be sure to capture it as well.
 function TradeWhisperMixin:TRADE_SKILL_ITEM_CRAFTED_RESULT(resultData)
     if resultData.hyperlink then
-        local item = Item:CreateFromItemLink(resultData.hyperlink)
-        item:ContinueOnItemLoad(
-            function ()
-                local name = item:GetItemName()
-                self.craftedNameToLink[name] = resultData.hyperlink
-            end)
+        local nameWithQuality = resultData.hyperlink:match('|h%[(.-)%]|h')
+        self.craftedNameToLink[nameWithQuality] = resultData.hyperlink
     end
 end
 
